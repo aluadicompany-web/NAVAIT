@@ -55,6 +55,18 @@ try {
   assert.equal(await page.locator('main').evaluate(el=>el.classList.contains('inside-temple')),false);
   await page.locator('#enter-fair').click();await page.locator('.fair-room').waitFor();assert.ok(await x()<220);
   await page.keyboard.press('Escape');await page.locator('.fair-room').waitFor({state:'detached'});
+  await page.reload();
+  await page.locator('#open-fair').click();
+  await page.locator('.fair-room').waitFor();
+  await page.locator('#leave-fair').click();
+  await page.locator('.fair-room').waitFor({state:'detached'});
+  await page.evaluate(()=>localStorage.removeItem('navait.krathongs.v1'));
+  await page.reload();
+  await page.locator('#open-fair').click();
+  await page.locator('.fair-room').waitFor();
+  await page.locator('#leave-fair').click();
+  await page.locator('.fair-room').waitFor({state:'detached'});
+
   assert.deepEqual(errors,[]);
   console.log('PASS fair: launch entry, walking/camera, balloons 5 throws/reset, wheel ride/exit, wishing stars, mobile controls, return and reopen; no browser errors. Screenshots: /tmp/navait-fair-qa');
 } finally {await browser?.close();server.kill();}

@@ -1342,3 +1342,15 @@ header {
   #fair-interact { font-size: 12px; margin-left: auto; padding: 12px; }
   .fair-dialog { padding: 30px 18px 18px; }
 }
+
+/* Keep fair entry discoverable even after refreshing the river. */
+.header-actions .fair-nav { background: #f0d49e; color: #3b4c43; border-color: #f0d49e; white-space: nowrap; font-weight: 600; }
+#after #enter-fair { display: block; width: 100%; margin: 10px 0 2px; padding: 12px; background: #315e4c; color: #fff8e9; border-color: #315e4c; font-weight: 600; }
+#after { max-height: calc(100dvh - 130px); overflow-y: auto; }
+@media (max-width: 480px) {
+  .brand { font-size: 11px; gap: 5px; }
+  .brand-icon { width: 26px; height: 26px; }
+  .header-actions { gap: 5px; }
+  .header-actions .fair-nav { padding: 8px; font-size: 10px; }
+  header { padding-left: 4%; padding-right: 4%; gap: 7px; }
+}

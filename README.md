@@ -128,7 +128,7 @@ Each browser uses a persisted shuffled deck, drawing all 20 before a new cycle a
 
 ## Side-view temple fair
 
-After releasing a krathong, choose **เดินเล่นงานวัด** to enter a separate 3,800-unit 2D promenade. Walk with left/right arrows or A/D, hold the mobile arrow buttons, tap the street, or choose a destination in the top map. E or the nearby shop button opens an activity. Escape closes a shop, or returns to the river when outside a shop.
+Choose **ไปงานวัด** in the header (available before launching and after refresh), or **ไปเดินเล่นงานวัด** in the completion card, to enter a separate 3,800-unit 2D promenade. Walk with left/right arrows or A/D, hold the mobile arrow buttons, tap the street, or choose a destination in the top map. E or the nearby shop button opens an activity. Escape closes a shop, or returns to the river when outside a shop.
 
 Six stops include Thai sweets, a five-throw balloon round with reset, a food stall, an animated Ferris wheel with ride/exit, wishing stars, and drinks/cotton candy. Food stalls are scenic browsing stops; there are no purchases, payments, or inventories. The player uses their existing name/photo and a name-derived outfit color. Background visitors are decorative NPCs; this first fair scene does not synchronize players online.
 

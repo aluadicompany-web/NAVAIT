@@ -19,10 +19,10 @@ const shareControls = (id: string, label: string) =>
 
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
  <main><div id="river" aria-label="แม่น้ำยามค่ำและกระทงของคุณ"></div>
- <header><a class="brand" href="./"><svg class="brand-icon" width="40" height="40" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 29c3 8 29 8 32 0M8 29l5 9c6 3 16 3 22 0l5-9M10 29c5 2 23 2 28 0M24 29c-6-3-9-8-8-14 5 2 8 6 8 14Zm0 0c6-3 9-8 8-14-5 2-8 6-8 14ZM16 29c-5-1-8-4-10-9 5 0 9 2 12 6m14 3c5-1 8-4 10-9-5 0-9 2-12 6M23 21V12h3v9M24.5 9c-3-1-2-4 0-7 2 3 3 6 0 7ZM5 43c4-2 7 2 11 0s7 2 11 0 7 2 11 0 4 0 5 0"/></svg><span class="brand-name">Loy Krathong</span><span class="brand-divider"></span><span class="brand-tagline">A Night of Wishes</span></a><span class="edition">ใต้แสงจันทร์ เราพบกัน</span><div class="header-actions"><button type="button" class="sound" id="sound-toggle" aria-pressed="false" aria-label="เปิดเสียงบรรยากาศ"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 9c2 2 2 4 0 6m3-9c4 4 4 8 0 12"/></svg><span>เปิดเสียง</span></button><button class="sound" id="about" aria-label="เกี่ยวกับพื้นที่นี้">เกี่ยวกับ ↗</button></div></header><p id="audio-status" class="audio-status" role="status"></p>
+ <header><a class="brand" href="./"><svg class="brand-icon" width="40" height="40" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 29c3 8 29 8 32 0M8 29l5 9c6 3 16 3 22 0l5-9M10 29c5 2 23 2 28 0M24 29c-6-3-9-8-8-14 5 2 8 6 8 14Zm0 0c6-3 9-8 8-14-5 2-8 6-8 14ZM16 29c-5-1-8-4-10-9 5 0 9 2 12 6m14 3c5-1 8-4 10-9-5 0-9 2-12 6M23 21V12h3v9M24.5 9c-3-1-2-4 0-7 2 3 3 6 0 7ZM5 43c4-2 7 2 11 0s7 2 11 0 7 2 11 0 4 0 5 0"/></svg><span class="brand-name">Loy Krathong</span><span class="brand-divider"></span><span class="brand-tagline">A Night of Wishes</span></a><span class="edition">ใต้แสงจันทร์ เราพบกัน</span><div class="header-actions"><button type="button" class="sound fair-nav" id="open-fair">ไปงานวัด ↗</button><button type="button" class="sound" id="sound-toggle" aria-pressed="false" aria-label="เปิดเสียงบรรยากาศ"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 9c2 2 2 4 0 6m3-9c4 4 4 8 0 12"/></svg><span>เปิดเสียง</span></button><button class="sound" id="about" aria-label="เกี่ยวกับพื้นที่นี้">เกี่ยวกับ ↗</button></div></header><p id="audio-status" class="audio-status" role="status"></p>
  <section class="intro"><div class="eyebrow"><span></span> A LITTLE WISH, A LITTLE LIGHT</div><h1>ฝากคำอธิษฐาน<br>ให้สายน้ำพาไป<span> ✧</span></h1><p>คืนพระจันทร์เต็มดวง กระทงเล็ก ๆ และความหวังดีของคุณ<br>มาลอยความสุขไปด้วยกันนะ</p></section>
  <aside class="ritual" id="ritual"><div class="step">คืนพิเศษ เริ่มต้นที่คุณ <span>MAKE A WISH</span></div><h2>กระทงนี้…ของใครเอ่ย?</h2><p class="muted">ใส่ชื่อเล่น แล้วฝากคำอธิษฐานไว้กับสายน้ำ</p><form id="launch-form"><label for="name">ชื่อบนกระทง <span>*</span></label><input id="name" name="name" placeholder="ชื่อเล่นของคุณ" maxlength="24" required autocomplete="nickname"><div id="profile-picker"></div><label for="wish">คำอธิษฐาน <span class="optional">ไม่บังคับ</span></label><textarea id="wish" name="wish" placeholder="เขียนคำอธิษฐาน หรือเว้นว่างเพื่อสุ่มคำขอพร" maxlength="100" rows="2"></textarea><fieldset><legend>เลือกกระทงของคุณ <span class="optional">9 แบบ · โมเดล 3D</span></legend><div class="choices">${designs.map((d, i) => `<button type="button" class="choice ${i === 0 ? "active" : ""}" data-design="${i}" aria-pressed="${i === 0}" title="${d.description}"><img alt="กระทง${d.name}" width="100" height="74"><span>${d.name}</span></button>`).join("")}</div><p id="design-description">${designs[0].description}</p></fieldset><button class="primary" type="submit">ลอยกระทงของฉัน <span>↗</span></button><p id="launch-status" role="status"></p><div class="privacy" id="connection-status"></div></form></aside>
- <p id="ceremony-status" class="ceremony-status" role="status" hidden></p><section class="after" id="after" hidden><span class="success-icon">✧</span><h2>คำอธิษฐานออกเดินทางแล้ว</h2><p>ขอให้ความสุขลอยกลับมาหาคุณนะ</p>${shareControls("share-mine", "แชร์กระทงของฉัน")}<button type="button" class="share-button" id="enter-temple">เข้าโบสถ์</button><button type="button" class="share-button" id="enter-fair">เดินเล่นงานวัด</button><button class="primary" id="again">ลอยอีกหนึ่งความปรารถนา ↗</button></section>
+ <p id="ceremony-status" class="ceremony-status" role="status" hidden></p><section class="after" id="after" hidden><span class="success-icon">✧</span><h2>คำอธิษฐานออกเดินทางแล้ว</h2><p>ขอให้ความสุขลอยกลับมาหาคุณนะ</p>${shareControls("share-mine", "แชร์กระทงของฉัน")}<button type="button" class="share-button" id="enter-temple">เข้าโบสถ์</button><button type="button" class="share-button" id="enter-fair">ไปเดินเล่นงานวัด ↗</button><button class="primary" id="again">ลอยอีกหนึ่งความปรารถนา ↗</button></section>
  <section id="shared-card" class="after shared-card" hidden><h2>คำอธิษฐานที่ส่งถึงคุณ</h2><p id="shared-message" role="status">กำลังตามหากระทง…</p><button type="button" id="retry-shared" class="share-button" hidden>ลองอีกครั้ง</button><button type="button" class="primary" id="join-river">ลอยกระทงของฉัน</button></section>
  <dialog id="wish-dialog"><button id="close-dialog" class="close" aria-label="ปิด">×</button><img id="dialog-avatar" class="dialog-avatar" alt="รูปโปรไฟล์" width="96" height="96" hidden><h2 id="dialog-name"></h2><p id="dialog-wish"></p>${shareControls("share-wish", "แชร์คำอธิษฐานนี้")}</dialog></main>`;
 const ambience = new Ambience(
@@ -311,16 +311,25 @@ document
   });
 
 let fairRoom: { close: () => void } | null = null;
-document.querySelector<HTMLButtonElement>("#enter-fair")!.addEventListener("click", async () => {
-  if (!latestOwn || fairRoom || templeRoom) return;
-  const button = document.querySelector<HTMLButtonElement>("#enter-fair")!;
+let fairOpening = false;
+async function openFair(button: HTMLButtonElement) {
+  if (fairRoom || templeRoom || fairOpening) return;
+  fairOpening = true;
+  // Entry also works after refresh, or as a visitor before releasing a boat.
+  const item = latestOwn || state.krathongs.at(-1) || {
+    id: crypto.randomUUID(),
+    name: document.querySelector<HTMLInputElement>("#name")!.value.trim().slice(0, 24) || "ผู้มาเที่ยวงานวัด",
+    wish: "", color: designs[state.selected].color, design: state.selected,
+    x: 0, y: 0, created: Date.now(),
+    photo: picker.photo?.dataUrl,
+  };
   button.disabled = true;
   try {
     const { Fair } = await import("./fair");
     river?.setPaused(true);
     await ambience.setScenePaused(true);
     document.querySelector("main")!.classList.add("inside-temple");
-    fairRoom = new Fair(latestOwn, picker.photo?.dataUrl, () => {
+    fairRoom = new Fair(item, item.photo || photoUrl(item), () => {
       fairRoom = null;
       document.querySelector("main")!.classList.remove("inside-temple");
       river?.setPaused(false);
@@ -333,5 +342,9 @@ document.querySelector<HTMLButtonElement>("#enter-fair")!.addEventListener("clic
     void ambience.setScenePaused(false);
     document.querySelector<HTMLElement>("#audio-status")!.textContent = "เปิดงานวัดไม่สำเร็จ ลองอีกครั้ง";
     console.warn("Fair could not open", error);
-  } finally { button.disabled = false; }
-});
+  } finally { button.disabled = false; fairOpening = false; }
+}
+for (const id of ["enter-fair", "open-fair"]) {
+  const button = document.querySelector<HTMLButtonElement>(`#${id}`)!;
+  button.addEventListener("click", () => void openFair(button));
+}
