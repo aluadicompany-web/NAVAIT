@@ -59,11 +59,14 @@ header {
   text-decoration: none;
   font-size: 17px;
   font-weight: 600;
-  letter-spacing: 3px;
+  letter-spacing: 1.5px;
+  white-space: nowrap;
 }
 .brand-icon {
   color: var(--gold);
-  font-size: 33px;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
 }
 .brand-divider {
   height: 21px;
@@ -71,7 +74,7 @@ header {
   background: #ffffff25;
   margin: 0 8px;
 }
-.brand-thai {
+.brand-tagline {
   font-size: 14px;
   font-weight: 400;
   letter-spacing: 0;
@@ -362,7 +365,7 @@ dialog p {
     font-size: 14px;
     gap: 8px;
   }
-  .brand-thai {
+  .brand-tagline {
     font-size: 12px;
   }
   .brand-divider {
@@ -1289,4 +1292,10 @@ header {
     font-size: 9px;
     padding: 6px 8px;
   }
+}
+
+@media (max-width: 600px) {
+  .brand-tagline, .brand-divider { display: none; }
+  .brand { letter-spacing: 0.5px; }
+  .brand-icon { width: 32px; height: 32px; }
 }
