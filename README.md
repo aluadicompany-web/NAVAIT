@@ -133,3 +133,11 @@ Choose **ไปงานวัด** in the header (available before launching an
 Six stops include Thai sweets, a five-throw balloon round with reset, a food stall, an animated Ferris wheel with ride/exit, wishing stars, and drinks/cotton candy. Food stalls are scenic browsing stops; there are no purchases, payments, or inventories. The player uses their existing name/photo and a name-derived outfit color. Background visitors are decorative NPCs; this first fair scene does not synchronize players online.
 
 The scene uses a cached Canvas 2D illustration, layered parallax, capped pixel ratio, reduced-motion support, visibility pause, and a lazy module (~7 KB gzip). It reuses the current app without adding another engine dependency. The river and ambient audio pause while visiting; closing disposes the scene and restores the river. No Supabase migration or paid services are needed. Run `npm run test:fair` (optionally set `BROWSER_EXECUTABLE`) after `npm run build`; screenshots are saved under `/tmp/navait-fair-qa`.
+
+### Temple connection recovery
+
+The temple explicitly joins a **public Presence channel** using the current anonymous user's access token, checks the initial `track()` acknowledgement, retries failed joins/tracks with backoff, coalesces movement updates, and reconnects when returning to the tab. A **ลองเชื่อมต่อใหม่** button is shown while disconnected. Leaving cancels retry/send timers and invalidates old callbacks.
+
+If both clients only see themselves, read the new connection message first: permission errors suggest checking whether public channels are allowed in Supabase Realtime settings; token errors suggest returning to the river and signing in/releasing again; timeouts suggest checking the network/VPN/WebSocket connection; quota errors require checking Realtime usage. Presence is not Postgres Changes: enabling replication for the `krathongs` table does not fix channel authentication. Do not disable table/storage RLS or put a service-role/secret key in Vite to resolve this.
+
+`npm run test:temple` uses the real Supabase client against mocked HTTP/WebSocket responses. It covers two clients, movement/prayer, explicit leave/rejoin, join rejection, track rejection, manual retry, and automatic recovery; this does not verify a deployed project's Realtime settings.

@@ -40,7 +40,7 @@ try {
   const rows = [],
     sockets = new Set(),
     state = new Map();
-  let tracks = 0;
+  let tracks = 0, rejectJoins = 0, rejectTracks = 0;
   const send = (socket, event, payload, ref = null) => {
     socket.route.send(
       JSON.stringify([socket.joinRef, ref, socket.topic, event, payload]),
@@ -158,6 +158,17 @@ try {
           const reply = () =>
             send(socket, "phx_reply", { status: "ok", response: {} }, ref);
           if (event === "phx_join") {
+            sockets.add(socket);
+            socket.topic = topic;
+            socket.key = payload.config.presence.key;
+            assert.equal(payload.config.private, false);
+            assert.equal(payload.config.presence.enabled, true);
+            assert.equal(payload.access_token.split(".").length, 3);
+            if (rejectJoins > 0) {
+              rejectJoins--;
+              send(socket, "phx_reply", { status: "error", response: { reason: "public channel permission denied" } }, ref);
+              return;
+            }
             socket.topic = topic;
             socket.key = payload.config.presence.key;
             send(
@@ -169,6 +180,11 @@ try {
             setTimeout(sync, 10);
           } else if (event === "presence") {
             if (payload.event === "track") {
+              if (rejectTracks > 0) {
+                rejectTracks--;
+                send(socket, "phx_reply", { status: "error", response: {} }, ref);
+                return;
+              }
               tracks++;
               state.set(socket.key, payload.payload);
             } else if (payload.event === "untrack") state.delete(socket.key);
@@ -201,10 +217,30 @@ try {
       },
     );
     const page = await context.newPage();
+    page.setDefaultTimeout(45000);
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (m) => {
       if (m.type() === "error") errors.push(m.text());
     });
+    if (process.env.TEMPLE_RECOVERY_ONLY) {
+      await page.route("http://127.0.0.1:5184/presence-test", route => route.fulfill({contentType:"text/html",body:'<p id="temple-presence"></p><button id="temple-reconnect">retry</button><div id="peers"></div>'}));
+      await page.goto("http://127.0.0.1:5184/presence-test");
+      await page.evaluate(async name => {
+        const { realtimeClient } = await import('/src/online.ts');
+        const { TemplePresence } = await import('/src/temple-presence.ts');
+        await realtimeClient().auth.signInAnonymously();
+        const id=crypto.randomUUID();
+        await realtimeClient().from('krathongs').insert({id,name,wish:'test',design:0,color:1,x:.5,y:.5});
+        window.__presence = new TemplePresence({id:crypto.randomUUID(),krathongId:id,x:0,z:5,praying:false}, peers => {
+          document.querySelector('#peers').replaceChildren(...peers.map(peer=>{const el=document.createElement('span');el.dataset.presenceId=peer.presence.id;return el;}));
+          document.querySelector('#temple-presence').textContent=`อยู่ร่วมกัน ${peers.length+1} คน`;
+        }, status => {
+          document.querySelector('#temple-presence').textContent=status==='เชื่อมต่อแล้ว'?`อยู่ร่วมกัน ${document.querySelectorAll('[data-presence-id]').length+1} คน`:status;
+        });
+        document.querySelector('#temple-reconnect').onclick=()=>window.__presence.reconnect();
+      }, name);
+      return {context,page};
+    }
     await page.goto("http://127.0.0.1:5184");
     assert.equal(await page.locator(".temple-room").count(), 0);
     await page.locator("#name").fill(name);
@@ -219,7 +255,7 @@ try {
   await a.page.waitForFunction(() =>
     document.querySelector("#temple-presence").textContent.includes("1 คน"),
   );
-  assert.equal(await a.page.evaluate(() => window.__chants.length), 0);
+  if (!process.env.TEMPLE_RECOVERY_ONLY) assert.equal(await a.page.evaluate(() => window.__chants.length), 0);
   const b = await client("แสงดาว");
   await a.page.waitForFunction(
     () => document.querySelectorAll("[data-presence-id]").length === 1,
@@ -230,6 +266,7 @@ try {
   assert.ok(
     (await a.page.locator("#temple-presence").textContent()).includes("2 คน"),
   );
+  if (!process.env.TEMPLE_RECOVERY_ONLY) {
   const before = await a.page
     .locator(".temple-room")
     .getAttribute("data-player-x");
@@ -315,6 +352,24 @@ try {
   await b.page.waitForFunction(
     () => document.querySelectorAll("[data-presence-id]").length === 1,
   );
+  }
+  console.log("PASS temple room: two clients present");
+  // Reject a real SDK join once, check the diagnostic, then retry without reloading.
+  rejectJoins = 100;
+  await a.page.evaluate(() => document.querySelector("#temple-reconnect").click());
+  await a.page.waitForFunction(() => document.querySelector("#temple-presence").textContent.includes("สิทธิ์"));
+  console.log("PASS denied join diagnostic");
+  await a.page.locator("#temple-reconnect").click();
+  rejectJoins = 0;
+  await b.page.waitForFunction(() => document.querySelectorAll("[data-presence-id]").length === 1);
+  await a.page.waitForFunction(() => document.querySelector("#temple-presence").textContent.includes("2 คน"));
+  // A failed initial track must recover automatically, even with no walking updates.
+  rejectTracks = 100;
+  await a.page.evaluate(() => document.querySelector("#temple-reconnect").click());
+  await a.page.waitForFunction(() => document.querySelector("#temple-presence").textContent.includes("TRACK_ERROR"));
+  rejectTracks = 0;
+  await a.page.waitForFunction(() => document.querySelector("#temple-presence").textContent.includes("2 คน"));
+  await b.page.waitForFunction(() => document.querySelectorAll("[data-presence-id]").length === 1);
   await a.context.close();
   await b.page.waitForFunction(
     () => document.querySelectorAll("[data-presence-id]").length === 0,
@@ -322,7 +377,9 @@ try {
   assert.deepEqual(errors, []);
   await b.context.close();
   console.log(
-    "PASS temple: optional entry; real SDK presence through mocked websocket; two clients join/move/pray; idle throttling; explicit leave/rejoin/disconnect; recitation controls; desktop/mobile render",
+    process.env.TEMPLE_RECOVERY_ONLY
+      ? "PASS presence recovery: real SDK; two clients; rejected joins; manual retry; rejected initial track; automatic rejoin; disconnect cleanup"
+      : "PASS temple: entry; two clients join/move/pray; idle throttling; leave/rejoin/disconnect; join/track rejection and recovery; recitation controls; desktop/mobile render",
   );
 } finally {
   await browser?.close();

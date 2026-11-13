@@ -49,7 +49,7 @@ export class Temple {
   ) {
     this.root.className = "temple-room";
     this.root.setAttribute("aria-label", "ภายในโบสถ์");
-    this.root.innerHTML = `<div id="temple-viewport"></div><div class="temple-top"><button type="button" id="leave-temple">← กลับท่าน้ำ</button><div><h1>ภายในโบสถ์</h1><p id="temple-presence" role="status">กำลังเชื่อมต่อผู้ร่วมสวด…</p></div></div><div class="temple-controls"><button type="button" id="temple-pray" aria-pressed="false">นั่งสวดมนต์</button><button type="button" id="temple-chant" aria-pressed="false">ฟังบทสวด</button><p id="temple-audio-status" role="status"></p><details><summary>บทนมัสการพระพุทธเจ้า</summary><p>นะโม ตัสสะ ภะคะวะโต<br>อะระหะโต สัมมาสัมพุทธัสสะ<br><small>สวด 3 จบ · เสียงอ่านภาษาไทย</small></p></details></div><div class="temple-dpad" role="group" aria-label="ปุ่มเดิน"><button type="button" data-direction="ArrowUp" aria-label="เดินไปข้างหน้า">↑</button><button type="button" data-direction="ArrowLeft" aria-label="เดินไปทางซ้าย">←</button><button type="button" data-direction="ArrowDown" aria-label="เดินถอยหลัง">↓</button><button type="button" data-direction="ArrowRight" aria-label="เดินไปทางขวา">→</button></div><p class="temple-hint">แตะพื้นเพื่อเดิน · ใช้ WASD หรือลูกศรได้</p>`;
+    this.root.innerHTML = `<div id="temple-viewport"></div><div class="temple-top"><button type="button" id="leave-temple">← กลับท่าน้ำ</button><div><h1>ภายในโบสถ์</h1><p id="temple-presence" role="status">กำลังเชื่อมต่อผู้ร่วมสวด…</p><button type="button" id="temple-reconnect" hidden>ลองเชื่อมต่อใหม่</button></div></div><div class="temple-controls"><button type="button" id="temple-pray" aria-pressed="false">นั่งสวดมนต์</button><button type="button" id="temple-chant" aria-pressed="false">ฟังบทสวด</button><p id="temple-audio-status" role="status"></p><details><summary>บทนมัสการพระพุทธเจ้า</summary><p>นะโม ตัสสะ ภะคะวะโต<br>อะระหะโต สัมมาสัมพุทธัสสะ<br><small>สวด 3 จบ · เสียงอ่านภาษาไทย</small></p></details></div><div class="temple-dpad" role="group" aria-label="ปุ่มเดิน"><button type="button" data-direction="ArrowUp" aria-label="เดินไปข้างหน้า">↑</button><button type="button" data-direction="ArrowLeft" aria-label="เดินไปทางซ้าย">←</button><button type="button" data-direction="ArrowDown" aria-label="เดินถอยหลัง">↓</button><button type="button" data-direction="ArrowRight" aria-label="เดินไปทางขวา">→</button></div><p class="temple-hint">แตะพื้นเพื่อเดิน · ใช้ WASD หรือลูกศรได้</p>`;
     this.viewport = this.root.querySelector("#temple-viewport")!;
     this.renderer = new T.WebGLRenderer({
       antialias: true,
@@ -118,6 +118,7 @@ export class Temple {
         (status) => this.connection(status),
       );
     } else this.connection("อยู่คนเดียวบนอุปกรณ์นี้");
+    this.root.querySelector<HTMLButtonElement>("#temple-reconnect")!.onclick = () => this.presence?.reconnect();
     this.renderer.setAnimationLoop(this.frame);
     this.root.querySelector<HTMLButtonElement>("#leave-temple")!.focus();
   }
@@ -148,6 +149,7 @@ export class Temple {
   }
   private connection(status: string) {
     if (this.closed) return;
+    this.root.querySelector<HTMLButtonElement>("#temple-reconnect")!.hidden = !onlineConfigured || status === "เชื่อมต่อแล้ว";
     this.root.querySelector("#temple-presence")!.textContent = onlineConfigured
       ? status === "เชื่อมต่อแล้ว"
         ? `อยู่ร่วมกัน ${this.peers.size + 1} คน`
@@ -220,6 +222,7 @@ export class Temple {
   private blur = () => this.keys.clear();
   private visibility = () => {
     if (document.hidden) this.keys.clear();
+    else this.presence?.reconnect();
     this.last = 0;
   };
   private pageHide = () => this.close();
