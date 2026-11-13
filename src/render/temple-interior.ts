@@ -1,4 +1,6 @@
 import * as T from "three";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { floorTileStyle } from "./tile-pattern";
 import {
   TempleMaterials,
   templeSurface,
@@ -11,6 +13,7 @@ export class TempleInterior {
   readonly environment = this.surfaces.environment;
   private flameMeshes: T.Mesh[] = [];
   private resources: T.BufferGeometry[] = [];
+  private contactTexture: T.CanvasTexture;
   constructor() {
     const raw = new T.Group(),
       materials = new Map<number, T.MeshStandardMaterial>();
@@ -50,7 +53,21 @@ export class TempleInterior {
       h: number,
       d: number,
     ) => part(box, c, x, y, z, w, h, d);
-    block(0xc8b397, 0, -0.12, -0.7, 12.5, 0.24, 16.6);
+    block(0xb4a68f, 0, -0.12, -0.7, 12.5, 0.24, 16.6);
+    for (let row = 0; row < 16; row++)
+      for (let column = 0; column < 12; column++) {
+        const tile = block(
+          0xc8b397,
+          column - 5.5,
+          0.005,
+          row - 8.5,
+          0.982,
+          0.02,
+          0.982,
+        );
+        tile.userData.tileStyle = floorTileStyle(column, row);
+      }
+
     // Polished tiled floor, cream walls, maroon lacquer panels and gold trim.
     block(0xf0dfbf, 0, 2.4, -9, 12.5, 4.8, 0.2);
     for (const side of [-1, 1]) {
@@ -74,11 +91,72 @@ export class TempleInterior {
     for (const y of [0.12, 4.5]) block(0xe2bb66, 0, y, -8.77, 8, 0.12, 0.08);
     block(0x983f40, 0, 0.025, 2.0, 3.2, 0.04, 10.5);
     for (const x of [-1.6, 1.6]) block(0xd6b16b, x, 0.05, 2, 0.06, 0.045, 10.5);
+    const pillow = new RoundedBoxGeometry(0.95, 0.12, 0.8, 3, 0.055);
+    const positions = pillow.getAttribute("position");
+    for (let i = 0; i < positions.count; i++) {
+      const x = positions.getX(i),
+        y = positions.getY(i),
+        z = positions.getZ(i);
+      if (y > 0) {
+        const bulge =
+          Math.max(0, 1 - (x / 0.475) ** 2) * Math.max(0, 1 - (z / 0.4) ** 2);
+        const tuft = Math.exp(-(x * x + z * z) / 0.007);
+        positions.setY(i, y + 0.026 * bulge - 0.012 * tuft);
+      }
+    }
+    pillow.computeVertexNormals();
+    this.resources.push(pillow);
+    const outline = [
+      [-0.37, -0.395],
+      [0.37, -0.395],
+      [0.46, -0.31],
+      [0.46, 0.31],
+      [0.37, 0.395],
+      [-0.37, 0.395],
+      [-0.46, 0.31],
+      [-0.46, -0.31],
+    ].map(([x, z]) => new T.Vector3(x, 0.005, z));
+    const piping = new T.TubeGeometry(
+      new T.CatmullRomCurve3(outline, true, "centripetal"),
+      40,
+      0.007,
+      4,
+      true,
+    );
+    this.resources.push(piping);
+    const shadowCanvas = document.createElement("canvas");
+    shadowCanvas.width = shadowCanvas.height = 64;
+    const context = shadowCanvas.getContext("2d")!,
+      shadow = context.createRadialGradient(32, 32, 7, 32, 32, 32);
+    shadow.addColorStop(0, "rgba(40,30,20,.3)");
+    shadow.addColorStop(1, "rgba(40,30,20,0)");
+    context.fillStyle = shadow;
+    context.fillRect(0, 0, 64, 64);
+    this.contactTexture = new T.CanvasTexture(shadowCanvas);
+    const shadows = new T.InstancedMesh(
+      new T.PlaneGeometry(1.25, 1.08),
+      new T.MeshBasicMaterial({
+        map: this.contactTexture,
+        transparent: true,
+        depthWrite: false,
+        opacity: 0.7,
+      }),
+      12,
+    );
+    let shadowIndex = 0;
     for (const z of [-1.6, 1.1, 3.8])
       for (const x of [-3.4, -1.1, 1.1, 3.4]) {
-        block(0x9f5650, x, 0.055, z, 0.95, 0.08, 0.8);
-        block(0xd1a56b, x, 0.1, z, 0.85, 0.018, 0.7);
+        part(pillow, 0xd1a56b, x, 0.065, z, 1, 1, 1);
+        part(piping, 0x9f5650, x, 0.065, z, 1, 1, 1);
+        const transform = new T.Object3D();
+        transform.position.set(x + 0.02, 0.026, z + 0.025);
+        transform.rotation.x = -Math.PI / 2;
+        transform.updateMatrix();
+        shadows.setMatrixAt(shadowIndex++, transform.matrix);
       }
+    shadows.instanceMatrix.needsUpdate = true;
+    shadows.frustumCulled = false;
+    this.group.add(shadows);
     // Three-tier lotus dais and a seated Buddha with robe, ushnisha and halo.
     for (let i = 0; i < 3; i++)
       part(
@@ -193,7 +271,13 @@ export class TempleInterior {
           nx = Math.abs(normals.getX(i)),
           ny = Math.abs(normals.getY(i)),
           nz = Math.abs(normals.getZ(i));
-        if (surface === "gold" && obj.geometry.type !== "BoxGeometry") {
+        if (surface === "stone" && obj.userData.tileStyle) {
+          const original = geo.getAttribute("uv"),
+            variant = obj.userData.tileStyle.variant;
+          uv[i * 2] = ((variant % 4) + 0.015 + original.getX(i) * 0.97) / 4;
+          uv[i * 2 + 1] =
+            (Math.floor(variant / 4) + 0.015 + original.getY(i) * 0.97) / 4;
+        } else if (surface === "gold" && obj.geometry.type !== "BoxGeometry") {
           const original = geo.getAttribute("uv");
           uv[i * 2] = original.getX(i) * 2;
           uv[i * 2 + 1] = original.getY(i) * 2;
@@ -201,9 +285,13 @@ export class TempleInterior {
           uv[i * 2] = (ny > 0.7 ? x : nx > nz ? z : x) * frequency;
           uv[i * 2 + 1] = (ny > 0.7 ? z : y) * frequency;
         }
-        colors[i * 3] = surface === "mural" ? 1 : color.r;
-        colors[i * 3 + 1] = surface === "mural" ? 1 : color.g;
-        colors[i * 3 + 2] = surface === "mural" ? 1 : color.b;
+        const fade = obj.userData.tileStyle?.fade ?? 0;
+        colors[i * 3] =
+          surface === "mural" ? 1 : color.r + (1 - color.r) * fade;
+        colors[i * 3 + 1] =
+          surface === "mural" ? 1 : color.g + (1 - color.g) * fade;
+        colors[i * 3 + 2] =
+          surface === "mural" ? 1 : color.b + (1 - color.b) * fade;
       }
       geo.setAttribute("uv", new T.BufferAttribute(uv, 2));
       geo.setAttribute("color", new T.BufferAttribute(colors, 3));
@@ -254,6 +342,10 @@ export class TempleInterior {
         )
       )
         m.dispose();
+    });
+    this.contactTexture.dispose();
+    this.group.traverse((o) => {
+      if (o instanceof T.InstancedMesh) o.dispose();
     });
     this.surfaces.dispose();
   }

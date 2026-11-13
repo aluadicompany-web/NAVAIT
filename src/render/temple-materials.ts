@@ -1,4 +1,5 @@
 import * as T from "three";
+import { tileVariantStyle } from "./tile-pattern";
 export type TempleSurface =
   | "stone"
   | "plaster"
@@ -113,6 +114,73 @@ function noiseMap(
   }
   return c;
 }
+function stoneAtlas() {
+  const c = canvas(512),
+    ctx = c.getContext("2d")!,
+    size = 128;
+  for (let variant = 0; variant < 16; variant++) {
+    const x = (variant % 4) * size,
+      y = Math.floor(variant / 4) * size,
+      { cracked, faded } = tileVariantStyle(variant);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.beginPath();
+    ctx.rect(0, 0, size, size);
+    ctx.clip();
+    const tone = (faded ? 248 : 234) + (variant % 3) * 2;
+    ctx.fillStyle = `rgb(${tone},${tone},${tone - 2})`;
+    ctx.fillRect(0, 0, size, size);
+    for (let line = 0; line < 3; line++) {
+      ctx.strokeStyle = "rgba(133,127,119,.075)";
+      ctx.lineWidth = 0.6 + (line % 2) * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(-4, line * 48 + (variant % 17));
+      ctx.bezierCurveTo(
+        32,
+        line * 42 - 12,
+        82,
+        line * 45 + 26,
+        132,
+        line * 44 + 9,
+      );
+      ctx.stroke();
+    }
+    if (cracked) {
+      const mirror = variant === 11;
+      ctx.save();
+      if (mirror) {
+        ctx.translate(size, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.strokeStyle = "rgba(104,96,86,.26)";
+      ctx.lineWidth = 0.9;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(25, 18);
+      ctx.lineTo(39, 37);
+      ctx.lineTo(43, 52);
+      ctx.lineTo(58, 62);
+      ctx.lineTo(63, 78);
+      ctx.stroke();
+      ctx.lineWidth = 0.55;
+      ctx.beginPath();
+      ctx.moveTo(43, 52);
+      ctx.lineTo(33, 58);
+      ctx.lineTo(30, 69);
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.strokeStyle = "#c8c3b8";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, size - 2, size - 2);
+    ctx.strokeStyle = "rgba(255,255,250,.8)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(3, 3, size - 6, size - 6);
+    ctx.restore();
+  }
+  return c;
+}
 function mural() {
   const c = canvas(512),
     ctx = c.getContext("2d")!;
@@ -168,7 +236,7 @@ export class TempleMaterials {
       this.textures.push(map);
       return map;
     };
-    const stone = texture(noiseMap(512, "stone"), true),
+    const stone = texture(stoneAtlas(), true),
       grain = texture(noiseMap(512, "wood"), true),
       weave = texture(noiseMap(256, "fabric"), true),
       leaf = texture(noiseMap(256, "gold"), true),

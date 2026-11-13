@@ -113,3 +113,9 @@ The setup SQL now uses testing mode with no per-user daily krathong limit. Exist
 The interior uses separate batched materials for veined stone tiles, fine plaster, wood grain, glossy red lacquer, woven fabric, gold leaf and the lotus-pattern mural. UVs retain their surface scale; display-color maps use sRGB while height/roughness maps remain linear. The Buddha and round decorative objects use smoother geometry and metal roughness with a small generated room-light reflection environment.
 
 All texture maps are generated locally at 256–512 pixels, with a 64-pixel-per-face environment cube, mipmaps and modest anisotropy. They are created only when entering the temple and disposed on exit. No external texture downloads, shadow maps or screen-space reflections are required. The material batches preserve the existing walking/presence system and the river scene's lighting.
+
+## Gently varied tiles and soft cushions
+
+The floor uses a deterministic tile layout with 16 texture variants. A small subset has short hairline cracks, another subset is mildly faded, and the rest stays clean with subtle tone differences. The condition does not change each time the room loads; there are no broken chunks, heavy stains or holes. All tiles share one material/atlas batch.
+
+Prayer cushions use rounded, slightly domed geometry with a shallow center tuft, fabric piping, woven material and soft contact shading. Cushion shadows share one small texture and one instanced draw. Walking boundaries and online player data are unchanged. The lazy temple geometry helper is included in Vite dependency optimization to avoid a first-entry development reload on a fresh cache.
