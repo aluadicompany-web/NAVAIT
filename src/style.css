@@ -1299,3 +1299,46 @@ header {
   .brand { letter-spacing: 0.5px; }
   .brand-icon { width: 32px; height: 32px; }
 }
+
+/* The fair is a separate, disposable 2D scene. */
+.fair-open { overflow: hidden; }
+.fair-room { position: fixed; inset: 0; z-index: 40; background: #182b43; color: #fff0d4; }
+.fair-room canvas { display: block; touch-action: none; }
+.fair-top { position: absolute; top: max(22px, env(safe-area-inset-top)); left: 4%; right: 4%; display: flex; gap: 25px; align-items: center; pointer-events: none; }
+.fair-room button { border: 1px solid #eed8b54a; border-radius: 12px; padding: 11px 18px; background: #263c4be8; color: #fff0d4; font: inherit; cursor: pointer; }
+.fair-room button:focus-visible { outline: 3px solid #ffe4a4; outline-offset: 4px; }
+.fair-room button:disabled { cursor: default; opacity: .6; }
+.fair-top button { pointer-events: auto; }
+.fair-top span { font-size: 10px; letter-spacing: 2px; color: #e7c798; }
+.fair-top h1 { margin: 3px 0; font-size: 26px; }
+.fair-top .fair-badge { margin-left: auto; border: 1px solid #dcc6a13b; padding: 8px 14px; border-radius: 20px; }
+.fair-bottom { position: absolute; bottom: max(22px, env(safe-area-inset-bottom)); left: 4%; right: 4%; display: flex; align-items: center; gap: 20px; }
+.fair-directions { display: flex; gap: 9px; }
+.fair-directions button { width: 58px; height: 52px; font-size: 24px; touch-action: none; user-select: none; }
+.fair-bottom p { margin-left: auto; font-size: 12px; background: #233747b8; border-radius: 20px; padding: 10px 16px; }
+#fair-interact { background: #f4d59e; color: #423c4a; font-weight: 600; }
+#fair-interact[hidden] { display: none; }
+.fair-map { position: absolute; top: max(112px, calc(env(safe-area-inset-top) + 95px)); left: 4%; right: 4%; display: flex; gap: 7px; overflow: auto; scrollbar-width: thin; padding: 4px; }
+.fair-map button { font-size: 11px; padding: 7px 12px; white-space: nowrap; background: #223b4880; }
+.fair-map button[aria-current="true"] { border-color: #efd29a; background: #645963; }
+.fair-dialog { color: #493e4a; background: #fff2db; width: min(460px, calc(100vw - 36px)); max-height: 85dvh; overflow: auto; padding: 32px; border: 1px solid #e9cda3; border-radius: 24px; text-align: center; }
+.fair-dialog::backdrop { background: #101d34aa; }
+.fair-dialog h2 { font-size: 26px; margin: 0 0 12px; }
+.fair-dialog p { line-height: 1.8; font-size: 14px; white-space: pre-line; }
+.fair-dialog .fair-close { position: absolute; right: 8px; top: 5px; padding: 4px 12px; color: #766574; background: transparent; border: 0; font-size: 25px; }
+.fair-activity { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.fair-balloons { display: grid; width: 100%; grid-template-columns: repeat(6, 1fr); background: #64516b; padding: 12px; border-radius: 14px; gap: 8px; }
+.fair-balloons button { padding: 0; height: 58px; font-size: 38px; border: 0; background: #ffffff10; text-shadow: -3px -3px 0 #ffffff25; }
+.fair-balloons .popped { font-size: 24px; }
+@media (max-width: 700px) {
+  .fair-top { gap: 14px; top: max(14px, env(safe-area-inset-top)); }
+  .fair-top h1 { font-size: 20px; }
+  .fair-top .fair-badge { display: none; }
+  .fair-top span { font-size: 8px; letter-spacing: 1px; }
+  .fair-top button { padding: 10px; font-size: 12px; }
+  .fair-map { top: 84px; }
+  .fair-bottom { flex-wrap: wrap; gap: 10px; bottom: max(14px, env(safe-area-inset-bottom)); }
+  .fair-bottom p { width: 100%; margin: 0; font-size: 10px; text-align: center; padding: 6px; }
+  #fair-interact { font-size: 12px; margin-left: auto; padding: 12px; }
+  .fair-dialog { padding: 30px 18px 18px; }
+}

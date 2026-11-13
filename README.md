@@ -125,3 +125,11 @@ Prayer cushions use rounded, slightly domed geometry with a shallow center tuft,
 `src/blessings.ts` contains 20 distinct Thai personal wishes, including love, family, health and happiness. A blank or whitespace-only wish is resolved at creation time, stored in the existing `wish` field so the same text appears after refresh, on other devices and through a shared link. Authored wishes are preserved using the existing trim/100-character limit. All generated text fits that limit; no SQL migration is needed.
 
 Each browser uses a persisted shuffled deck, drawing all 20 before a new cycle and avoiding an adjacent duplicate at the cycle boundary. If storage is unavailable it falls back to an in-memory deck. This does not guarantee different messages across different players/browsers. Older saved records with an empty wish show a stable, ID-derived blessing when opened, without modifying their stored data.
+
+## Side-view temple fair
+
+After releasing a krathong, choose **เดินเล่นงานวัด** to enter a separate 3,800-unit 2D promenade. Walk with left/right arrows or A/D, hold the mobile arrow buttons, tap the street, or choose a destination in the top map. E or the nearby shop button opens an activity. Escape closes a shop, or returns to the river when outside a shop.
+
+Six stops include Thai sweets, a five-throw balloon round with reset, a food stall, an animated Ferris wheel with ride/exit, wishing stars, and drinks/cotton candy. Food stalls are scenic browsing stops; there are no purchases, payments, or inventories. The player uses their existing name/photo and a name-derived outfit color. Background visitors are decorative NPCs; this first fair scene does not synchronize players online.
+
+The scene uses a cached Canvas 2D illustration, layered parallax, capped pixel ratio, reduced-motion support, visibility pause, and a lazy module (~7 KB gzip). It reuses the current app without adding another engine dependency. The river and ambient audio pause while visiting; closing disposes the scene and restores the river. No Supabase migration or paid services are needed. Run `npm run test:fair` (optionally set `BROWSER_EXECUTABLE`) after `npm run build`; screenshots are saved under `/tmp/navait-fair-qa`.
