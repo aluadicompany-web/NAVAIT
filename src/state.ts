@@ -1,3 +1,4 @@
+import { resolveWish } from "./blessings";
 import { isLocalPhoto } from "./profile";
 import { designs } from "./catalog";
 export type Krathong = {
@@ -62,7 +63,7 @@ export function makeKrathong(
     id: crypto.randomUUID(),
     photo,
     name: name.trim().slice(0, 24),
-    wish: wish.trim().slice(0, 100),
+    wish: resolveWish(wish),
     color: designs[state.selected].color,
     design: state.selected,
     x: 0.56 + Math.random() * 0.25,

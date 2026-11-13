@@ -319,6 +319,7 @@ try {
     selected,
   );
   await page.keyboard.press("Escape");
+  assert.equal(await page.locator("#wish").inputValue(), "");
   await page.locator("#name").fill("ไม่มีรูป");
   await page.locator("button[type=submit]").click();
   await page
@@ -328,6 +329,14 @@ try {
     (await page.locator("#dialog-avatar").getAttribute("src")).startsWith(
       "data:image/png",
     ),
+  );
+  const generated = await page.locator("#dialog-wish").textContent();
+  assert.ok(generated.includes("คำอวยพรจาก NAVAIT"));
+  assert.equal(
+    await page.evaluate(
+      () => JSON.parse(localStorage.getItem("navait.krathongs.v1")).at(-1).wish,
+    ),
+    generated,
   );
   await page.keyboard.press("Escape");
   await page.locator("#again").click();
@@ -579,6 +588,15 @@ try {
   );
   assert.equal(rows.length, 1);
   assert.deepEqual(onlineErrors, []);
+  failUpload = false;
+  failInsert = false;
+  await p.locator("#remove-photo").click();
+  await p.locator("#wish").fill("  \n  ");
+  await p.locator("#name").fill("รับคำอวยพร");
+  await p.locator("button[type=submit]").click();
+  await p.locator("#after").waitFor({ state: "visible" });
+  assert.ok(rows.at(-1).wish.includes("คำอวยพรจาก NAVAIT"));
+  assert.ok(rows.at(-1).wish.length <= 100);
   const old = rows[0];
   for (let i = 0; i < 35; i++)
     rows.push({

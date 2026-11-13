@@ -119,3 +119,9 @@ All texture maps are generated locally at 256–512 pixels, with a 64-pixel-per-
 The floor uses a deterministic tile layout with 16 texture variants. A small subset has short hairline cracks, another subset is mildly faded, and the rest stays clean with subtle tone differences. The condition does not change each time the room loads; there are no broken chunks, heavy stains or holes. All tiles share one material/atlas batch.
 
 Prayer cushions use rounded, slightly domed geometry with a shallow center tuft, fabric piping, woven material and soft contact shading. Cushion shadows share one small texture and one instanced draw. Walking boundaries and online player data are unchanged. The lazy temple geometry helper is included in Vite dependency optimization to avoid a first-entry development reload on a fresh cache.
+
+## Automatic wishes from NAVAIT
+
+`src/blessings.ts` contains 20 distinct Thai blessings. A blank or whitespace-only wish is resolved at creation time, signed “คำอวยพรจาก NAVAIT”, and stored in the existing `wish` field so the same text appears after refresh, on other devices and through a shared link. Authored wishes are preserved using the existing trim/100-character limit. All generated text including attribution fits that limit; no SQL migration is needed.
+
+Each browser uses a persisted shuffled deck, drawing all 20 before a new cycle and avoiding an adjacent duplicate at the cycle boundary. If storage is unavailable it falls back to an in-memory deck. This does not guarantee different messages across different players/browsers. Older saved records with an empty wish show a stable, ID-derived blessing when opened, without modifying their stored data.
