@@ -107,3 +107,9 @@ Run `BROWSER_EXECUTABLE=/usr/bin/chromium npm run test:temple` for two-context b
 ## Solo testing and public-launch reset
 
 The setup SQL now uses testing mode with no per-user daily krathong limit. Existing Supabase projects must run [the testing migration](supabase/migrations/testing-disable-daily-limit.sql) once; a website deployment does not change the live database function. Global storage/capacity and ownership guards remain active. Use [the prelaunch guide](supabase/PRELAUNCH.md) to remove test objects/rows later and restore the daily rule before public launch. Preparing this change does not delete any live data or apply a live migration.
+
+## Temple surface materials
+
+The interior uses separate batched materials for veined stone tiles, fine plaster, wood grain, glossy red lacquer, woven fabric, gold leaf and the lotus-pattern mural. UVs retain their surface scale; display-color maps use sRGB while height/roughness maps remain linear. The Buddha and round decorative objects use smoother geometry and metal roughness with a small generated room-light reflection environment.
+
+All texture maps are generated locally at 256–512 pixels, with a 64-pixel-per-face environment cube, mipmaps and modest anisotropy. They are created only when entering the temple and disposed on exit. No external texture downloads, shadow maps or screen-space reflections are required. The material batches preserve the existing walking/presence system and the river scene's lighting.

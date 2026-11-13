@@ -64,6 +64,8 @@ export class Temple {
     this.labels.className = "boat-labels";
     this.viewport.append(this.labels);
     this.scene.add(this.interior.group);
+    this.scene.environment = this.interior.environment;
+    this.scene.environmentIntensity = 0.6;
     const start = { x: (Math.random() - 0.5) * 3, z: 5.3 };
     this.own = this.visitor(item, photo, start);
     this.root.dataset.selfId = this.id;

@@ -1,15 +1,22 @@
 import * as T from "three";
+import {
+  TempleMaterials,
+  templeSurface,
+  type TempleSurface,
+} from "./temple-materials";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 export class TempleInterior {
   readonly group = new T.Group();
+  private surfaces = new TempleMaterials();
+  readonly environment = this.surfaces.environment;
   private flameMeshes: T.Mesh[] = [];
   private resources: T.BufferGeometry[] = [];
   constructor() {
     const raw = new T.Group(),
       materials = new Map<number, T.MeshStandardMaterial>();
     const box = new T.BoxGeometry(),
-      sphere = new T.SphereGeometry(1, 12, 8),
-      cylinder = new T.CylinderGeometry(1, 1, 1, 20),
+      sphere = new T.SphereGeometry(1, 20, 14),
+      cylinder = new T.CylinderGeometry(1, 1, 1, 24),
       cone = new T.ConeGeometry(1, 1, 16);
     this.resources.push(box, sphere, cylinder, cone);
     const part = (
@@ -45,10 +52,6 @@ export class TempleInterior {
     ) => part(box, c, x, y, z, w, h, d);
     block(0xc8b397, 0, -0.12, -0.7, 12.5, 0.24, 16.6);
     // Polished tiled floor, cream walls, maroon lacquer panels and gold trim.
-    for (let x = -6; x <= 6; x++)
-      block(0xa59883, x, 0.006, -0.7, 0.012, 0.012, 16.5);
-    for (let z = -9; z <= 7; z++)
-      block(0xa59883, 0, 0.006, z, 12.5, 0.012, 0.012);
     block(0xf0dfbf, 0, 2.4, -9, 12.5, 4.8, 0.2);
     for (const side of [-1, 1]) {
       block(0xe3d0ae, side * 6.2, 2.1, -0.7, 0.2, 4.2, 16.6);
@@ -69,13 +72,6 @@ export class TempleInterior {
     for (const x of [-3.95, 3.95])
       block(0xe2bb66, x, 2.3, -8.77, 0.12, 4.5, 0.08);
     for (const y of [0.12, 4.5]) block(0xe2bb66, 0, y, -8.77, 8, 0.12, 0.08);
-    // Restrained lotus pattern behind the principal image.
-    for (let row = 0; row < 5; row++)
-      for (let col = 0; col < 11; col++) {
-        const x = -3.5 + col * 0.7 + (row % 2) * 0.15,
-          y = 0.5 + row * 0.8;
-        part(sphere, 0xb58c4b, x, y, -8.69, 0.055, 0.11, 0.015);
-      }
     block(0x983f40, 0, 0.025, 2.0, 3.2, 0.04, 10.5);
     for (const x of [-1.6, 1.6]) block(0xd6b16b, x, 0.05, 2, 0.06, 0.045, 10.5);
     for (const z of [-1.6, 1.1, 3.8])
@@ -170,42 +166,65 @@ export class TempleInterior {
       this.flameMeshes.push(flame);
     }
     raw.updateMatrixWorld(true);
-    const geometries: T.BufferGeometry[] = [];
+    const batches = new Map<TempleSurface, T.BufferGeometry[]>();
     raw.traverse((obj) => {
       if (!(obj instanceof T.Mesh)) return;
+      const color = (obj.material as T.MeshStandardMaterial).color;
+      const surface = templeSurface(color.getHex());
       const base = obj.geometry.clone().applyMatrix4(obj.matrixWorld);
-      base.deleteAttribute("uv");
       const geo = base.index ? base.toNonIndexed() : base;
       if (geo !== base) base.dispose();
-      const color = (obj.material as T.MeshStandardMaterial).color,
-        colors = new Float32Array(geo.getAttribute("position").count * 3);
-      for (let i = 0; i < colors.length; i += 3) {
-        colors[i] = color.r;
-        colors[i + 1] = color.g;
-        colors[i + 2] = color.b;
+      const positions = geo.getAttribute("position"),
+        normals = geo.getAttribute("normal");
+      const uv = new Float32Array(positions.count * 2),
+        colors = new Float32Array(positions.count * 3);
+      const frequency =
+        surface === "fabric"
+          ? 3
+          : surface === "wood" || surface === "lacquer"
+            ? 1.2
+            : surface === "plaster"
+              ? 2
+              : 1;
+      for (let i = 0; i < positions.count; i++) {
+        const x = positions.getX(i),
+          y = positions.getY(i),
+          z = positions.getZ(i),
+          nx = Math.abs(normals.getX(i)),
+          ny = Math.abs(normals.getY(i)),
+          nz = Math.abs(normals.getZ(i));
+        if (surface === "gold" && obj.geometry.type !== "BoxGeometry") {
+          const original = geo.getAttribute("uv");
+          uv[i * 2] = original.getX(i) * 2;
+          uv[i * 2 + 1] = original.getY(i) * 2;
+        } else {
+          uv[i * 2] = (ny > 0.7 ? x : nx > nz ? z : x) * frequency;
+          uv[i * 2 + 1] = (ny > 0.7 ? z : y) * frequency;
+        }
+        colors[i * 3] = surface === "mural" ? 1 : color.r;
+        colors[i * 3 + 1] = surface === "mural" ? 1 : color.g;
+        colors[i * 3 + 2] = surface === "mural" ? 1 : color.b;
       }
+      geo.setAttribute("uv", new T.BufferAttribute(uv, 2));
       geo.setAttribute("color", new T.BufferAttribute(colors, 3));
-      geometries.push(geo);
+      const list = batches.get(surface) || [];
+      list.push(geo);
+      batches.set(surface, list);
     });
-    const merged = mergeGeometries(geometries);
-    if (!merged) throw Error("Temple interior geometry failed");
-    this.group.add(
-      new T.Mesh(
-        merged,
-        new T.MeshStandardMaterial({
-          vertexColors: true,
-          roughness: 0.65,
-          metalness: 0.05,
-        }),
-      ),
-    );
-    geometries.forEach((g) => g.dispose());
+    for (const [surface, list] of batches) {
+      const merged = mergeGeometries(list);
+      if (!merged) throw Error("Temple material batching failed");
+      const mesh = new T.Mesh(merged, this.surfaces.materials.get(surface)!);
+      mesh.name = `Temple ${surface}`;
+      this.group.add(mesh);
+      list.forEach((g) => g.dispose());
+    }
     materials.forEach((m) => m.dispose());
-    this.group.add(new T.HemisphereLight(0xffedcf, 0x6b5146, 2.4));
-    const front = new T.DirectionalLight(0xffe7b5, 3);
+    this.group.add(new T.HemisphereLight(0xffedcf, 0x6b5146, 1.6));
+    const front = new T.DirectionalLight(0xffe7b5, 2.2);
     front.position.set(-3, 7, 5);
     this.group.add(front);
-    const goldLight = new T.PointLight(0xffd18a, 28, 15, 2);
+    const goldLight = new T.PointLight(0xffd18a, 18, 15, 2);
     goldLight.position.set(0, 4, -4.2);
     this.group.add(goldLight);
   }
@@ -228,6 +247,14 @@ export class TempleInterior {
     });
     this.resources.forEach((g) => geos.add(g));
     geos.forEach((g) => g.dispose());
-    mats.forEach((m) => m.dispose());
+    mats.forEach((m) => {
+      if (
+        ![...this.surfaces.materials.values()].includes(
+          m as T.MeshStandardMaterial,
+        )
+      )
+        m.dispose();
+    });
+    this.surfaces.dispose();
   }
 }
