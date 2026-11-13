@@ -55,3 +55,13 @@ npm run test:browser
 For an existing system Chromium, run `BROWSER_EXECUTABLE=/usr/bin/chromium npm run test:browser` instead. Browser tests start their own Vite processes on ports 5180 and 5181, use synthetic images and a mocked Supabase service, and save screenshots under `/tmp/navait-profile-qa`. No real project key is needed. Database tests run the SQL twice in PGlite and verify RLS ownership, path validation, quotas, and timestamp enforcement. These tests do not replace validation against a real Supabase project after setup.
 
 For the 3D scene, check all nine previews, rightward drift, water and candle animation, desktop/mobile layout and reduced motion. Actual mobile performance still needs a physical-device check.
+
+## Atmosphere and sharing
+
+The header's sound button starts quiet synthesized water, wind, and occasional birdlike chirps through Web Audio. Audio is off on initial load and starts only on a user gesture. It suspends while the page is hidden. Launching adds a soft chime when sound is enabled, plus three expanding ripples and 14 short-lived light particles. There is at most one launch effect at a time, cleaned up after 2.8 simulation seconds; reduced-motion preferences disable it. No audio assets or additional network requests are needed.
+
+Online launches offer **แชร์กระทงของฉัน**; the wish dialog can also share its krathong. Sharing uses the device share sheet, then clipboard, with a selectable-link fallback when neither is available. Cancelling native sharing does not report success. Browser-local boats cannot be shared across devices, so their share controls are hidden.
+
+Links use `?krathong=<UUID>` on the existing page, requiring no Render rewrite or SQL migration. Opening a link reads that row directly, highlights its boat, and opens its wish. The target stays included when the newest-30 list refreshes. The database's existing 30-day visibility policy still applies; expired, deleted, invalid, or unavailable targets show a clear message and a path to join the river. Only the generic site preview appears in social apps; this implementation does not generate per-boat social preview images.
+
+The browser suite also checks real Web Audio output samples and suspension, launch-effect cleanup, removed lower-left text, native/clipboard/manual share behavior, cancellation, and direct links to rows outside the newest 30. Service interactions use mocked responses; production configuration is unchanged.

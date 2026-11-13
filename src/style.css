@@ -857,3 +857,133 @@ footer {
 .privacy {
   line-height: 1.7;
 }
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+#sound-toggle {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+#sound-toggle[aria-pressed="true"] {
+  background: #e8cf9c1c;
+  border-color: #e8cf9c77;
+  color: #ffe6b3;
+}
+.audio-status {
+  position: fixed;
+  top: 85px;
+  right: 5%;
+  max-width: 260px;
+  z-index: 4;
+  font-size: 11px;
+  color: #ffe6b3;
+}
+.audio-status:empty {
+  display: none;
+}
+.share-controls {
+  margin: 12px 0 8px;
+}
+.share-button {
+  border: 1px solid #93aa8c;
+  border-radius: 8px;
+  background: #e9eedf;
+  color: #315e4c;
+  padding: 10px 14px;
+  font-size: 12px;
+  width: 100%;
+  cursor: pointer;
+}
+.share-button:hover {
+  background: #dce7d4;
+}
+.share-controls input {
+  font-size: 11px;
+  margin: 8px 0;
+  padding: 9px;
+  min-width: 0;
+}
+.share-controls [data-share-status] {
+  font-size: 10px;
+  line-height: 1.7;
+  margin: 6px 0;
+  color: #597254;
+  overflow-wrap: anywhere;
+}
+.share-controls [data-share-status]:empty {
+  display: none;
+}
+.after .share-controls {
+  margin: 8px 0;
+}
+.after .share-button {
+  padding: 9px;
+}
+.shared-card #shared-message {
+  display: block;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.shared-card {
+  z-index: 3;
+}
+.boat-label.is-focused {
+  border-color: #ffe4a0;
+  color: #ffe9af;
+  box-shadow: 0 0 15px #f8d88755;
+  background: #26483d;
+}
+.share-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+#wish-dialog {
+  max-height: 90svh;
+  overflow: auto;
+}
+#wish-dialog .share-controls {
+  margin-top: 22px;
+}
+#wish-dialog .share-controls p {
+  font-size: 11px;
+}
+@media (max-width: 760px) {
+  header {
+    gap: 10px;
+  }
+  .header-actions {
+    gap: 7px;
+  }
+  #sound-toggle {
+    padding: 8px;
+    min-width: 35px;
+    min-height: 35px;
+  }
+  #sound-toggle span {
+    display: none;
+  }
+  .playing .after {
+    bottom: 24px;
+  }
+  .after .share-controls {
+    margin-top: 8px;
+  }
+  .after .share-controls [data-share-status] {
+    display: block;
+    font-size: 10px;
+  }
+  .shared-card #shared-message {
+    display: block;
+  }
+  .audio-status {
+    top: 74px;
+    right: 6%;
+    font-size: 10px;
+  }
+  .edition {
+    display: none;
+  }
+}

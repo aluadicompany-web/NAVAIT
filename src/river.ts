@@ -9,6 +9,7 @@ type Boat = {
   label: HTMLButtonElement;
   offset: number;
   demo: boolean;
+  focusedAt?: number;
 };
 export class River {
   private renderer: T.WebGLRenderer;
@@ -17,6 +18,13 @@ export class River {
   private boats: Boat[] = [];
   private water = createWater();
   private media = matchMedia("(prefers-reduced-motion: reduce)");
+  private effect: {
+    group: T.Group;
+    rings: T.Mesh<T.RingGeometry, T.MeshBasicMaterial>[];
+    sparks: T.Points;
+    started: number;
+    origin: T.Vector3;
+  } | null = null;
   private time = 0;
   private last = 0;
   private lastFrame = 0;
@@ -93,6 +101,7 @@ export class River {
   }
   private motionChange = () => {
     this.last = 0;
+    if (this.media.matches) this.clearEffect();
   };
   private resize = () => {
     this.width = this.host.clientWidth;
@@ -146,6 +155,105 @@ export class River {
       }
     }
   }
+  focusBoat(id: string) {
+    const boat = this.boats.find((b) => b.item.id === id);
+    if (!boat) return;
+    boat.focusedAt = this.time;
+    boat.label.classList.add("is-focused");
+  }
+  celebrate(id: string) {
+    this.clearEffect();
+    if (this.media.matches) return;
+    const boat = this.boats.find((b) => b.item.id === id);
+    if (!boat) return;
+    const mobile = this.width < 760;
+    const origin = this.point(
+      boat.item.x - 0.06,
+      mobile ? 0.48 + (boat.item.y - 0.45) * 0.65 : boat.item.y,
+    );
+    const group = new T.Group();
+    group.position.copy(origin);
+    this.scene.add(group);
+    const rings = [];
+    for (let i = 0; i < 3; i++) {
+      const ring = new T.Mesh(
+        new T.RingGeometry(0.97, 1, 40),
+        new T.MeshBasicMaterial({
+          color: i === 0 ? 0xf5d48d : 0x96d1ba,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          side: T.DoubleSide,
+        }),
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.015 + i * 0.003;
+      group.add(ring);
+      rings.push(ring);
+    }
+    const positions = new Float32Array(14 * 3);
+    const geometry = new T.BufferGeometry();
+    geometry.setAttribute("position", new T.BufferAttribute(positions, 3));
+    const sparks = new T.Points(
+      geometry,
+      new T.PointsMaterial({
+        color: 0xffdfa1,
+        size: 0.055,
+        transparent: true,
+        opacity: 1,
+        depthWrite: false,
+        blending: T.AdditiveBlending,
+      }),
+    );
+    group.add(sparks);
+    this.effect = { group, rings, sparks, started: this.time, origin };
+    this.host.dataset.launchEffect = "active";
+  }
+  private clearEffect() {
+    if (!this.effect) return;
+    this.scene.remove(this.effect.group);
+    this.effect.group.traverse((obj) => {
+      if (obj instanceof T.Mesh || obj instanceof T.Points) {
+        obj.geometry.dispose();
+        (obj.material as T.Material).dispose();
+      }
+    });
+    this.effect = null;
+    delete this.host.dataset.launchEffect;
+  }
+  private updateEffect() {
+    const effect = this.effect;
+    if (!effect) return;
+    const age = this.time - effect.started;
+    if (age > 2.8) {
+      this.clearEffect();
+      return;
+    }
+    effect.rings.forEach((ring, i) => {
+      const progress = Math.max(0, (age - i * 0.16) / 2.4);
+      ring.scale.setScalar(0.35 + progress * 2.3);
+      ring.material.opacity =
+        age < i * 0.16 ? 0 : Math.max(0, (1 - progress) * 0.5);
+    });
+    const positions = effect.sparks.geometry.getAttribute(
+      "position",
+    ) as T.BufferAttribute;
+    for (let i = 0; i < 14; i++) {
+      const angle = (i / 14) * Math.PI * 2,
+        radius = 0.2 + age * 0.21;
+      positions.setXYZ(
+        i,
+        Math.cos(angle) * radius,
+        0.2 + Math.sin(i * 2.4) * 0.12 + age * 0.45,
+        Math.sin(angle) * radius,
+      );
+    }
+    positions.needsUpdate = true;
+    (effect.sparks.material as T.PointsMaterial).opacity = Math.max(
+      0,
+      1 - age / 2.4,
+    );
+  }
   syncBoats(items: Krathong[]) {
     const ids = new Set(items.map((item) => item.id));
     for (const boat of this.boats.filter(
@@ -191,13 +299,18 @@ export class River {
       const { item, model, label, demo } = boat;
       const age = this.time - boat.offset;
       // Every boat travels rightward with the current and re-enters upstream.
-      const sx = ((item.x + age * 0.009) % 1.12) - 0.06;
+      const focusedAge =
+        boat.focusedAt === undefined ? null : this.time - boat.focusedAt;
+      const sx =
+        (((focusedAge === null ? item.x : 0.56) + (focusedAge ?? age) * 0.009) %
+          1.12) -
+        0.06;
       const sy = mobile
         ? demo
           ? 0.47 + (item.y - 0.48) * 0.58
           : 0.48 + (item.y - 0.45) * 0.65
         : item.y;
-      const p = this.point(sx, sy);
+      const p = this.point(sx, focusedAge === null ? sy : mobile ? 0.55 : 0.58);
       model.group.position.copy(p);
       model.group.position.y = Math.sin(this.time * 1.4 + item.x * 9) * 0.035;
       model.group.rotation.set(
@@ -219,9 +332,11 @@ export class River {
       screen.project(this.camera);
       label.style.transform = `translate(-50%,-100%) translate(${(screen.x * 0.5 + 0.5) * this.width}px,${(-screen.y * 0.5 + 0.5) * this.height}px)`;
     }
+    this.updateEffect();
     this.renderer.render(this.scene, this.camera);
   };
   dispose() {
+    this.clearEffect();
     this.renderer.setAnimationLoop(null);
     window.removeEventListener("resize", this.resize);
     this.media.removeEventListener("change", this.motionChange);

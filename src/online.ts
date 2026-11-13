@@ -18,26 +18,47 @@ export function photoUrl(item: Krathong) {
     return `${url}/storage/v1/object/public/avatars/${item.avatarPath}`;
   return undefined;
 }
+const rowFields = "id,name,wish,design,color,x,y,created_at,avatar_path";
+function fromRow(row: {
+  id: string;
+  name: string;
+  wish: string;
+  design: number;
+  color: number;
+  x: number;
+  y: number;
+  created_at: string;
+  avatar_path: string | null;
+}): Krathong {
+  return {
+    id: row.id,
+    name: row.name,
+    wish: row.wish,
+    design: row.design,
+    color: row.color,
+    x: row.x,
+    y: row.y,
+    created: Date.parse(row.created_at),
+    avatarPath: row.avatar_path || undefined,
+  };
+}
+export async function loadSharedItem(id: string): Promise<Krathong | null> {
+  const { data, error } = await db()
+    .from("krathongs")
+    .select(rowFields)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? fromRow(data) : null;
+}
 export async function loadShared(): Promise<Krathong[]> {
   const { data, error } = await db()
     .from("krathongs")
-    .select("id,name,wish,design,color,x,y,created_at,avatar_path")
+    .select(rowFields)
     .order("created_at", { ascending: false })
     .limit(30);
   if (error) throw error;
-  return (data || [])
-    .reverse()
-    .map((row) => ({
-      id: row.id,
-      name: row.name,
-      wish: row.wish,
-      design: row.design,
-      color: row.color,
-      x: row.x,
-      y: row.y,
-      created: Date.parse(row.created_at),
-      avatarPath: row.avatar_path || undefined,
-    }));
+  return (data || []).reverse().map(fromRow);
 }
 export async function publish(
   item: Krathong,
@@ -66,19 +87,17 @@ export async function publish(
       });
     if (error) throw error;
   }
-  const { error } = await api
-    .from("krathongs")
-    .insert({
-      id: item.id,
-      owner_id: user.id,
-      name: item.name,
-      wish: item.wish,
-      design: item.design ?? 0,
-      color: item.color,
-      x: item.x,
-      y: item.y,
-      avatar_path: avatarPath ?? null,
-    });
+  const { error } = await api.from("krathongs").insert({
+    id: item.id,
+    owner_id: user.id,
+    name: item.name,
+    wish: item.wish,
+    design: item.design ?? 0,
+    color: item.color,
+    x: item.x,
+    y: item.y,
+    avatar_path: avatarPath ?? null,
+  });
   if (error) {
     if (avatarPath) await api.storage.from("avatars").remove([avatarPath]);
     throw error;

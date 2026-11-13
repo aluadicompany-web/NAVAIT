@@ -110,20 +110,76 @@ try {
     viewport: { width: 390, height: 844 },
     reducedMotion: "reduce",
   });
+  await context.addInitScript(() => {
+    window.__audioContexts = [];
+    const Native = window.AudioContext;
+    window.AudioContext = class extends Native {
+      constructor(...args) {
+        super(...args);
+        window.__audioContexts.push(this);
+        this.__oscillators = 0;
+      }
+      createOscillator() {
+        this.__oscillators++;
+        return super.createOscillator();
+      }
+      createDynamicsCompressor() {
+        const node = super.createDynamicsCompressor();
+        const connect = node.connect.bind(node);
+        const analyser = this.createAnalyser();
+        this.__analyser = analyser;
+        node.connect = (destination) => {
+          connect(analyser);
+          analyser.connect(destination);
+          return destination;
+        };
+        return node;
+      }
+    };
+  });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("http://127.0.0.1:5180");
   await page.locator(".choice img").first().waitFor();
+  assert.equal(await page.locator(".demo-note,.river-note,#count").count(), 0);
+  assert.equal(await page.evaluate(() => window.__audioContexts.length), 0);
+  await page.locator("#sound-toggle").click();
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#sound-toggle").getAttribute("aria-pressed") ===
+      "true",
+  );
+  await page.waitForFunction(() => {
+    const ctx = window.__audioContexts[0];
+    const samples = new Float32Array(512);
+    ctx.__analyser.getFloatTimeDomainData(samples);
+    return samples.some((x) => Math.abs(x) > 0.00001);
+  });
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      get: () => true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.waitForFunction(
+    () => window.__audioContexts[0].state === "suspended",
+  );
+  await page.evaluate(() => {
+    delete document.hidden;
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.waitForFunction(
+    () => window.__audioContexts[0].state === "running",
+  );
   const image = await fixture(page);
   const selected = await crop(page, image);
-  await page
-    .locator("#profile-file")
-    .setInputFiles({
-      name: "portrait.png",
-      mimeType: "image/png",
-      buffer: await fixture(page, 1600, 2400),
-    });
+  await page.locator("#profile-file").setInputFiles({
+    name: "portrait.png",
+    mimeType: "image/png",
+    buffer: await fixture(page, 1600, 2400),
+  });
   await page.locator("#crop-dialog").waitFor({ state: "visible" });
   await page.screenshot({ path: "/tmp/navait-profile-qa/crop-mobile.png" });
   await page.keyboard.press("Escape");
@@ -131,13 +187,11 @@ try {
     await page.locator("#profile-preview").getAttribute("src"),
     selected,
   );
-  await page
-    .locator("#profile-file")
-    .setInputFiles({
-      name: "broken.png",
-      mimeType: "image/png",
-      buffer: Buffer.from("not an image"),
-    });
+  await page.locator("#profile-file").setInputFiles({
+    name: "broken.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("not an image"),
+  });
   await page.waitForFunction(
     () => document.querySelector("#photo-status").textContent !== "กำลังเปิดรูป…",
   );
@@ -147,8 +201,32 @@ try {
   );
   await page.locator("#name").fill("ดาวน้อย");
   await page.locator("#wish").fill("ขอให้ทุกวันสดใส");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const oscillatorsBefore = await page.evaluate(
+    () => window.__audioContexts[0].__oscillators,
+  );
   await page.locator("button[type=submit]").click();
   await page.locator("#after").waitFor({ state: "visible" });
+  await page.locator('#river[data-launch-effect="active"]').waitFor();
+  assert.ok(
+    (await page.evaluate(() => window.__audioContexts[0].__oscillators)) >=
+      oscillatorsBefore + 3,
+  );
+  await page.screenshot({
+    path: "/tmp/navait-profile-qa/launch-effect-mobile.png",
+  });
+  await page
+    .locator("#river[data-launch-effect]")
+    .waitFor({ state: "detached", timeout: 20000 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.locator("#sound-toggle").click();
+  await page.waitForFunction(
+    () => window.__audioContexts[0].state === "suspended",
+  );
+  assert.equal(
+    await page.locator("#sound-toggle").getAttribute("aria-pressed"),
+    "false",
+  );
   assert.equal(await page.locator(".boat-label img").count(), 0);
   await page
     .getByRole("button", { name: "คำอธิษฐานของ ดาวน้อย", exact: true })
@@ -181,13 +259,11 @@ try {
   );
   await page.keyboard.press("Escape");
   await page.locator("#again").click();
-  await page
-    .locator("#profile-file")
-    .setInputFiles({
-      name: "landscape.png",
-      mimeType: "image/png",
-      buffer: image,
-    });
+  await page.locator("#profile-file").setInputFiles({
+    name: "landscape.png",
+    mimeType: "image/png",
+    buffer: image,
+  });
   await page.locator("#crop-dialog").waitFor({ state: "visible" });
   await page.locator("#crop-save").click();
   await page.locator("#crop-dialog").waitFor({ state: "hidden" });
@@ -212,6 +288,22 @@ try {
   const online = await browser.newContext({
     viewport: { width: 390, height: 844 },
     reducedMotion: "reduce",
+  });
+  await online.addInitScript(() => {
+    window.__copied = "";
+    window.__nativeShare = null;
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: undefined,
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value) => {
+          window.__copied = value;
+        },
+      },
+    });
   });
   const rows = [],
     uploads = new Map();
@@ -273,7 +365,15 @@ try {
         },
       });
     if (url.pathname === "/rest/v1/krathongs") {
-      if (req.method() === "GET") return json([...rows].reverse());
+      if (req.method() === "GET") {
+        const id = url.searchParams.get("id");
+        if (id) {
+          if (id === "eq.aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+            return json({ message: "offline" }, 503);
+          return json(rows.filter((row) => row.id === id.slice(3)));
+        }
+        return json([...rows].reverse().slice(0, 30));
+      }
       if (failInsert)
         return json(
           { message: "daily limit: 10 krathongs per user", code: "P0001" },
@@ -330,6 +430,50 @@ try {
   assert.equal(rows.length, 1);
   assert.equal(uploads.size, 1);
   assert.equal(downloads, 0);
+  await p.locator("#share-mine button").click();
+  const shareURL = await p.evaluate(() => window.__copied);
+  assert.equal(new URL(shareURL).searchParams.get("krathong"), rows[0].id);
+  await p.evaluate(() => {
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async (payload) => {
+        window.__nativeShare = payload;
+      },
+    });
+  });
+  await p.locator("#share-mine button").click();
+  assert.equal((await p.evaluate(() => window.__nativeShare)).url, shareURL);
+  await p.evaluate(() => {
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async () => {
+        throw new DOMException("Cancelled", "AbortError");
+      },
+    });
+  });
+  await p.locator("#share-mine button").click();
+  assert.equal(
+    await p.locator("#share-mine [data-share-status]").textContent(),
+    "",
+  );
+  await p.evaluate(() => {
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: undefined,
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async () => {
+          throw Error("denied");
+        },
+      },
+    });
+  });
+  await p.locator("#share-mine button").click();
+  await p.locator("#share-mine input").waitFor({ state: "visible" });
+  assert.equal(await p.locator("#share-mine input").inputValue(), shareURL);
+
   await p
     .getByRole("button", { name: "คำอธิษฐานของ แม่น้ำร่วมกัน", exact: true })
     .click();
@@ -363,6 +507,45 @@ try {
   );
   assert.equal(rows.length, 1);
   assert.deepEqual(onlineErrors, []);
+  const old = rows[0];
+  for (let i = 0; i < 35; i++)
+    rows.push({
+      ...old,
+      id: crypto.randomUUID(),
+      name: `ใหม่ ${i}`,
+      avatar_path: null,
+    });
+  const linked = await online.newPage();
+  const linkErrors = [];
+  linked.on("pageerror", (e) => linkErrors.push(e.message));
+  await linked.goto(shareURL);
+  await linked.locator("#wish-dialog[open]").waitFor();
+  assert.ok(
+    (await linked.locator("#dialog-name").textContent()).includes(old.name),
+  );
+  await linked.keyboard.press("Escape");
+  await linked.locator(".boat-label.is-focused").waitFor();
+  await linked.screenshot({ path: "/tmp/navait-profile-qa/shared-mobile.png" });
+  await linked.locator("#join-river").click();
+  assert.equal(new URL(linked.url()).searchParams.has("krathong"), false);
+  await linked.locator("#ritual").waitFor({ state: "visible" });
+  await linked.goto("http://127.0.0.1:5181/?krathong=" + crypto.randomUUID());
+  await linked.waitForFunction(() =>
+    document.querySelector("#shared-message").textContent.includes("ไม่พบกระทง"),
+  );
+  await linked.goto("http://127.0.0.1:5181/?krathong=invalid");
+  await linked.waitForFunction(() =>
+    document.querySelector("#shared-message").textContent.includes("ไม่ถูกต้อง"),
+  );
+  await linked.goto(
+    "http://127.0.0.1:5181/?krathong=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  );
+  await linked.locator("#retry-shared").waitFor({ state: "visible" });
+  assert.deepEqual(linkErrors, []);
+  await linked.close();
+  console.log(
+    "PASS ambience/sharing: no autoplay; real audio signal; background suspend/resume; chime; bounded launch effect; toggle off; removed text; clipboard/native/cancel/manual sharing; direct old/missing/invalid/unavailable links",
+  );
   await online.close();
   console.log(
     "PASS mocked online: anonymous session, compressed upload, shared river, photo fetched only on click, failed insert cleanup, upload failure and retry UI",
