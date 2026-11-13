@@ -68,8 +68,15 @@ The browser suite also checks real Web Audio output samples and suspension, laun
 
 ## Thai riverside festival scene
 
-`src/render/festival.ts` builds a stylized Thai temple with tiered red roofs and chofa, golden chedis, a low wooden landing, fair stalls, bunting, hanging lamps, and warm light strings. The landing sits close to the water and new boats glide from its end into the river over three simulation seconds. Existing saved boats retain their data and locations.
+`src/render/festival.ts` builds a stylized Thai temple with tiered red roofs and chofa, golden chedis, a low wooden landing, fair stalls, bunting, hanging lamps, and warm light strings. The landing sits close to the water and new boats glide from a safe release point beyond its end into the river over three simulation seconds. Existing saved data is preserved; every rendered boat, including older saves and shared links, uses the safe river channel.
 
-Static architecture is merged into two vertex-colored meshes (lit surfaces and decorative lights). Sky lanterns use instancing: 18 on desktop and 10 on narrow screens. They rise slowly with a gentle sway; reduced motion freezes their positions and skips release animation. No downloaded models, image textures, extra point lights, shadow maps, or postprocessing are needed. The water shader adds warm fragmented festival reflections. The existing 30 fps and 1.5 pixel-ratio caps remain in place.
+Static architecture is merged into two vertex-colored meshes (lit surfaces and decorative lights). Sky lanterns use instancing: 18 on desktop and 10 on narrow screens. They rise slowly with a gentle sway; reduced motion freezes their positions and skips release animation. No downloaded models, image textures, shadow maps, or postprocessing are needed. Two shadow-free warm point lights illuminate the landing and temple. The water shader adds warm fragmented festival reflections. The existing 30 fps and 1.5 pixel-ratio caps remain in place.
 
 Browser coverage checks lantern ascent, unchanged poses at a frozen simulation time, mobile/desktop instance counts, bounded scene batches, and the existing launch/profile/audio/share workflows. Inspect desktop and mobile screenshots and test actual mobile hardware before making frame-rate guarantees.
+
+
+## Landing clearance and natural light
+
+`src/navigation.ts` defines a common safe channel and release position. All boats (including examples, old saves, focused shared boats, resized views, and newly launched boats) remain beyond the landing with room for the largest craft. This changes rendering, not saved wishes or profile data. Navigation tests sample portrait/landscape viewports, all legacy depth ranges, horizontal drift/wrap and launch interpolation with a conservative craft radius.
+
+The temple and dock are brighter. Warm lamps vary slowly with small, out-of-phase changes; shared shader uniforms animate decorative-light brightness without splitting the static geometry batches. Two shadow-free lights gently illuminate actual surfaces, the soft lamp halos breathe, and the water's warm reflections ripple. These changes use the same paused/reduced-motion simulation clock, so reduced motion freezes the lighting too.

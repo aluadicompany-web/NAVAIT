@@ -183,10 +183,14 @@ try {
     );
     festival.update(1, camera, false);
     const before = body.instanceMatrix.array[13];
+    const pierLight = festival.group.getObjectByName("Warm pier light");
+    const intensityBefore = pierLight.intensity;
     festival.update(2, camera, false);
     const after = body.instanceMatrix.array[13];
+    const intensityAfter = pierLight.intensity;
     festival.update(2, camera, false);
     const frozen = body.instanceMatrix.array[13];
+    const intensityFrozen = pierLight.intensity;
     const desktopCount = body.count;
     festival.update(2, camera, true);
     const mobileCount = body.count;
@@ -194,6 +198,8 @@ try {
     const launchY = festival.launchPoint.y;
     festival.dispose();
     return {
+      lightingMoves: intensityBefore !== intensityAfter,
+      lightingFreezes: intensityAfter === intensityFrozen,
       rising: after > before,
       stationary: after === frozen,
       desktopCount,
@@ -202,6 +208,8 @@ try {
       launchY,
     };
   });
+  assert.equal(festivalChecks.lightingMoves, true);
+  assert.equal(festivalChecks.lightingFreezes, true);
   assert.equal(festivalChecks.rising, true);
   assert.equal(festivalChecks.stationary, true);
   assert.equal(festivalChecks.desktopCount, 18);

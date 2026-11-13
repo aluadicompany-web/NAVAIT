@@ -4,6 +4,7 @@ import { createKrathong, disposeModel, type Model } from "./render/krathong";
 import { Festival } from "./render/festival";
 import { createWater } from "./render/water";
 import { designs } from "./catalog";
+import { riverLane, keepInChannel } from "./navigation";
 type Boat = {
   item: Krathong;
   model: Model;
@@ -297,7 +298,7 @@ export class River {
     this.water.material.uniforms.time.value = this.time;
     const mobile = this.width < 760;
     for (const boat of this.boats) {
-      const { item, model, label, demo } = boat;
+      const { item, model, label } = boat;
       const age = this.time - boat.offset;
       // Every boat travels rightward with the current and re-enters upstream.
       const focusedAge =
@@ -306,12 +307,8 @@ export class River {
         (((focusedAge === null ? item.x : 0.56) + (focusedAge ?? age) * 0.009) %
           1.12) -
         0.06;
-      const sy = mobile
-        ? demo
-          ? 0.47 + (item.y - 0.48) * 0.58
-          : 0.48 + (item.y - 0.45) * 0.65
-        : item.y;
-      const p = this.point(sx, focusedAge === null ? sy : mobile ? 0.55 : 0.58);
+      const sy = riverLane(focusedAge === null ? item.y : 0.64, mobile);
+      const p = keepInChannel(this.point(sx, sy));
       if (boat.releasedAt !== undefined) {
         const progress = Math.min(1, (this.time - boat.releasedAt) / 3);
         p.lerpVectors(

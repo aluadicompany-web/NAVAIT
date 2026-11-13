@@ -1,10 +1,14 @@
 import * as T from "three";
+import { LAUNCH_SITE } from "../navigation";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
 /** A low waterside landing and Thai temple, drawn in material batches. */
 export class Festival {
   readonly group = new T.Group();
-  readonly launchPoint = new T.Vector3(-0.8, 0, 0.5);
+  readonly launchPoint = new T.Vector3(LAUNCH_SITE.x, 0, LAUNCH_SITE.z);
+  private glowTime = { value: 0 };
+  private pierLight = new T.PointLight(0xffc57b, 8, 9, 2);
+  private templeLight = new T.PointLight(0xffd392, 12, 12, 2);
   private materials = new Map<string, T.MeshStandardMaterial>();
   private lanterns: T.InstancedMesh;
   private flames: T.InstancedMesh;
@@ -28,7 +32,7 @@ export class Festival {
         this.materials.set(
           key,
           new T.MeshStandardMaterial({
-            color: new T.Color(color).multiplyScalar(glow ? 0.65 : 0.2),
+            color: new T.Color(color).multiplyScalar(glow ? 0.75 : 0.3),
             roughness: 0.8,
             metalness: glow ? 0.08 : 0,
             side: T.DoubleSide,
@@ -482,7 +486,7 @@ export class Festival {
       const material = obj.material as T.MeshStandardMaterial;
       const glowing = material.emissiveIntensity > 0;
       const color = glowing
-        ? material.emissive.clone().multiplyScalar(0.9)
+        ? material.emissive.clone().multiplyScalar(1.2)
         : material.color;
       const transformed = obj.geometry.clone().applyMatrix4(obj.matrixWorld);
       transformed.deleteAttribute("uv");
@@ -513,6 +517,25 @@ export class Festival {
             roughness: 0.8,
             side: T.DoubleSide,
           });
+      if (glowing) {
+        material.onBeforeCompile = (shader) => {
+          shader.uniforms.festivalTime = this.glowTime;
+          shader.vertexShader =
+            "varying vec3 vFestivalPosition;\n" + shader.vertexShader;
+          shader.vertexShader = shader.vertexShader.replace(
+            "#include <begin_vertex>",
+            "#include <begin_vertex>\nvFestivalPosition=position;",
+          );
+          shader.fragmentShader =
+            "uniform float festivalTime; varying vec3 vFestivalPosition;\n" +
+            shader.fragmentShader;
+          shader.fragmentShader = shader.fragmentShader.replace(
+            "#include <color_fragment>",
+            "#include <color_fragment>\nfloat phase=vFestivalPosition.x*.71+vFestivalPosition.z*.37; diffuseColor.rgb*=1.05+.065*sin(festivalTime*1.7+phase)+.025*sin(festivalTime*3.1+phase*1.8);",
+          );
+        };
+        material.customProgramCacheKey = () => "festival-warm-light-v1";
+      }
       const mesh = new T.Mesh(merged, material);
       mesh.name = glowing ? "Festival lights" : "Temple and low landing";
       this.group.add(mesh);
@@ -543,6 +566,7 @@ export class Festival {
       }),
       18,
     );
+    this.shoreGlows.instanceMatrix.setUsage(T.DynamicDrawUsage);
     this.shoreGlows.frustumCulled = false;
     this.group.add(this.shoreGlows);
     this.lanterns = new T.InstancedMesh(
@@ -575,6 +599,11 @@ export class Festival {
       }),
       18,
     );
+    this.pierLight.position.set(-0.8, 1.45, -0.6);
+    this.templeLight.position.set(0, 2, -4.0);
+    this.pierLight.name = "Warm pier light";
+    this.templeLight.name = "Warm temple light";
+    this.group.add(this.pierLight, this.templeLight);
     this.lanterns.name = "Sky lanterns";
     for (const mesh of [this.lanterns, this.flames, this.rims, this.glows]) {
       mesh.frustumCulled = false;
@@ -584,21 +613,37 @@ export class Festival {
   }
   update(time: number, camera: T.Camera, mobile: boolean) {
     if (time === this.previousTime && mobile === this.previousMobile) return;
-    if (this.previousTime < 0) {
-      const transform = new T.Object3D();
-      transform.quaternion.copy(camera.quaternion);
-      for (let i = 0; i < 18; i++) {
-        const x = -17 + i * 2;
-        transform.position.set(
-          x,
-          1.6 - 0.32 * Math.abs(Math.sin(x * 0.33)) - 0.22,
-          -3.8,
-        );
-        transform.updateMatrix();
-        this.shoreGlows.setMatrixAt(i, transform.matrix);
-      }
-      this.shoreGlows.instanceMatrix.needsUpdate = true;
+    this.glowTime.value = time;
+    const transform = new T.Object3D(),
+      glowColor = new T.Color();
+    transform.quaternion.copy(camera.quaternion);
+    for (let i = 0; i < 18; i++) {
+      const x = -17 + i * 2;
+      const breathe =
+        1 +
+        0.055 * Math.sin(time * 1.4 + i * 1.7) +
+        0.025 * Math.sin(time * 3.1 + i * 0.8);
+      transform.position.set(
+        x,
+        1.6 -
+          0.32 * Math.abs(Math.sin(x * 0.33)) -
+          0.22 +
+          Math.sin(time * 1.2 + i) * 0.008,
+        -3.8,
+      );
+      transform.scale.setScalar(breathe * 1.2);
+      transform.updateMatrix();
+      this.shoreGlows.setMatrixAt(i, transform.matrix);
+      glowColor.setRGB(breathe, breathe, breathe);
+      this.shoreGlows.setColorAt(i, glowColor);
     }
+    this.shoreGlows.instanceMatrix.needsUpdate = true;
+    if (this.shoreGlows.instanceColor)
+      this.shoreGlows.instanceColor.needsUpdate = true;
+    this.pierLight.intensity =
+      8 * (1 + 0.07 * Math.sin(time * 1.7) + 0.025 * Math.sin(time * 3.1));
+    this.templeLight.intensity = 12 * (1 + 0.045 * Math.sin(time * 0.9 + 1.2));
+    this.pierLight.position.x = -0.8 + Math.sin(time * 0.8) * 0.035;
     this.previousTime = time;
     this.previousMobile = mobile;
     const count = mobile ? 10 : 18,
@@ -630,7 +675,7 @@ export class Festival {
       this.rims.setMatrixAt(i, matrix.matrix);
       matrix.position.y = y - 0.02;
       matrix.quaternion.copy(camera.quaternion);
-      matrix.scale.setScalar(size);
+      matrix.scale.setScalar(size * (1 + 0.045 * Math.sin(time * 2.2 + i)));
       matrix.updateMatrix();
       this.glows.setMatrixAt(i, matrix.matrix);
     }
