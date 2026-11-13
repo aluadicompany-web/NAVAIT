@@ -1109,3 +1109,184 @@ header {
     font-size: 10px;
   }
 }
+#enter-temple {
+  margin-top: 8px;
+}
+.inside-temple {
+  visibility: hidden;
+}
+.temple-open {
+  overflow: hidden;
+}
+.temple-room {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  color: #fff0d0;
+  font-family: inherit;
+  background: #33292b;
+}
+#temple-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+#temple-viewport canvas {
+  display: block;
+  touch-action: none;
+}
+.temple-top {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  top: 20px;
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  pointer-events: none;
+}
+.temple-top > button,
+.temple-controls {
+  pointer-events: auto;
+}
+.temple-top h1 {
+  font-size: 20px;
+  line-height: 1.3;
+  margin: 0;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+.temple-top p {
+  font-size: 11px;
+  margin: 4px 0 0;
+  color: #dcc6a5;
+}
+.temple-top button,
+.temple-controls > button {
+  font: inherit;
+  color: #fff0d0;
+  border: 1px solid #d8b67a55;
+  background: #44302ce8;
+  border-radius: 12px;
+  padding: 10px 15px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.temple-controls {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  width: 205px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #392b29e8;
+  border: 1px solid #cda45d44;
+  display: grid;
+  gap: 9px;
+}
+.temple-controls > button[aria-pressed="true"] {
+  background: #92703b;
+  border-color: #efce86;
+}
+.temple-controls p {
+  font-size: 10px;
+  line-height: 1.8;
+  margin: 0;
+  color: #edcf9e;
+}
+.temple-controls p:empty {
+  display: none;
+}
+.temple-controls details {
+  font-size: 10px;
+  color: #d8be91;
+}
+.temple-controls summary {
+  cursor: pointer;
+  padding: 4px;
+}
+.temple-controls details p {
+  padding: 8px 4px;
+}
+.temple-hint {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  font-size: 11px;
+  background: #3e2c2acc;
+  padding: 8px 12px;
+  border-radius: 12px;
+  color: #ead6b1;
+  pointer-events: none;
+}
+.temple-dpad {
+  display: none;
+}
+@media (max-width: 760px) {
+  .temple-top {
+    left: 12px;
+    right: 12px;
+    top: 12px;
+    gap: 10px;
+  }
+  .temple-top h1 {
+    font-size: 16px;
+  }
+  .temple-top button {
+    font-size: 11px;
+    padding: 9px 11px;
+  }
+  .temple-top p {
+    font-size: 10px;
+  }
+  .temple-controls {
+    right: 12px;
+    bottom: 16px;
+    width: 158px;
+    padding: 9px;
+    gap: 7px;
+  }
+  .temple-controls > button {
+    padding: 9px 6px;
+    font-size: 11px;
+  }
+  .temple-dpad {
+    display: grid;
+    position: absolute;
+    left: 16px;
+    bottom: 24px;
+    grid-template-columns: repeat(3, 36px);
+    grid-template-rows: repeat(2, 36px);
+    gap: 4px;
+  }
+  .temple-dpad button {
+    touch-action: none;
+    border: 1px solid #d9ba7955;
+    border-radius: 10px;
+    background: #47332edb;
+    color: #ffe9bd;
+    font-size: 19px;
+  }
+  .temple-dpad button:first-child {
+    grid-column: 2;
+  }
+  .temple-dpad button:nth-child(2) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .temple-dpad button:nth-child(3) {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .temple-dpad button:nth-child(4) {
+    grid-column: 3;
+    grid-row: 2;
+  }
+  .temple-hint {
+    left: 16px;
+    bottom: 111px;
+    max-width: 140px;
+    font-size: 9px;
+    padding: 6px 8px;
+  }
+}

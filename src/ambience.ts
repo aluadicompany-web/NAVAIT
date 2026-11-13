@@ -5,6 +5,7 @@ export class Ambience {
   private sources: AudioScheduledSourceNode[] = [];
   private timer: ReturnType<typeof setInterval> | null = null;
   private enabled = false;
+  private scenePaused = false;
   private busy = false;
   constructor(
     private button: HTMLButtonElement,
@@ -183,7 +184,7 @@ export class Ambience {
     }
   }
   private visibility = async () => {
-    if (!this.enabled || !this.context) return;
+    if (!this.enabled || !this.context || this.scenePaused) return;
     if (document.hidden) {
       this.stopNature();
       await this.context.suspend().catch(() => {});
@@ -199,6 +200,23 @@ export class Ambience {
       }
     }
   };
+  async setScenePaused(paused: boolean) {
+    this.scenePaused = paused;
+    try {
+      if (paused) {
+        this.stopNature();
+        await this.context?.suspend();
+      } else if (this.enabled && this.context && !document.hidden) {
+        await this.context.resume();
+        this.startNature();
+      }
+    } catch {
+      this.enabled = false;
+      this.stopNature();
+      this.update();
+      this.status.textContent = "แตะเปิดเสียงเพื่อฟังต่อ";
+    }
+  }
   dispose() {
     document.removeEventListener("visibilitychange", this.visibility);
     this.stopNature();

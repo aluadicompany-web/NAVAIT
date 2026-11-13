@@ -40,6 +40,7 @@ export class River {
   private last = 0;
   private lastFrame = 0;
   private running = true;
+  private paused = false;
   private width = 1;
   private height = 1;
   private ray = new T.Raycaster();
@@ -347,7 +348,7 @@ export class River {
     const actorDelta = this.last ? Math.min((now - this.last) / 1000, 0.2) : 0;
     const delta = this.last ? Math.min((now - this.last) / 1000, 0.05) : 0;
     this.last = now;
-    if (!this.running || document.hidden) return;
+    if (!this.running || document.hidden || this.paused) return;
     if (!this.media.matches) this.time += delta;
     this.water.material.uniforms.time.value = this.time;
     const mobile = this.width < 760;
@@ -417,6 +418,15 @@ export class River {
     this.updateEffect();
     this.renderer.render(this.scene, this.camera);
   };
+  setPaused(paused: boolean) {
+    this.paused = paused;
+    this.last = 0;
+    if (paused) {
+      this.actor?.finish();
+      this.actor = null;
+      delete this.host.dataset.ceremony;
+    }
+  }
   dispose() {
     this.clearEffect();
     this.actor?.finish();

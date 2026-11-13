@@ -7,7 +7,7 @@ import type { Krathong } from "../state";
 /** Gender-neutral chibi body with a camera-facing circular portrait head. */
 export class CeremonyAvatar {
   readonly group = new T.Group();
-  readonly held: Model;
+  readonly held: Model | null;
   readonly head = document.createElement("div");
   readonly side: EntrySide;
   private torso = new T.Group();
@@ -29,6 +29,7 @@ export class CeremonyAvatar {
     photo: string | undefined,
     private onRelease: (origin: T.Vector3, scale: number) => void,
     private onDone: () => void,
+    mode: "ceremony" | "hall" = "ceremony",
   ) {
     this.side = side;
     const sphere = new T.SphereGeometry(1, 10, 7),
@@ -81,14 +82,15 @@ export class CeremonyAvatar {
       this.arms.push({ upper, lower, hand, side: s });
     }
     mesh(sphere, seam, this.torso, 0, 0.78, 0.207, 0.032, 0.032, 0.015);
-    this.held = createKrathong(item.design ?? 0);
-    this.group.add(this.held.group);
-    this.held.group.scale.setScalar(0.52);
-    // A water reflection is not part of a carried object.
-    this.held.group.traverse((o) => {
-      if (o instanceof T.Mesh && o.geometry.type === "PlaneGeometry")
-        o.visible = false;
-    });
+    this.held = mode === "ceremony" ? createKrathong(item.design ?? 0) : null;
+    if (this.held) {
+      this.group.add(this.held.group);
+      this.held.group.scale.setScalar(0.52);
+      this.held.group.traverse((o) => {
+        if (o instanceof T.Mesh && o.geometry.type === "PlaneGeometry")
+          o.visible = false;
+      });
+    }
     this.head.className = "ceremony-avatar-head";
     this.head.style.visibility = "hidden";
     this.head.dataset.actorId = item.id;
@@ -123,7 +125,7 @@ export class CeremonyAvatar {
     width: number,
     height: number,
   ) {
-    if (this.disposed) return;
+    if (this.disposed || !this.held) return;
     if (reduced && !this.reduced && this.elapsed > 0)
       this.elapsed = this.released ? 0.2 : 0;
     if (this.reduced && !reduced) this.elapsed = this.released ? 7.3 : 0;
@@ -192,8 +194,61 @@ export class CeremonyAvatar {
       this.onDone();
     }
   }
+  updateHall(
+    x: number,
+    z: number,
+    yaw: number,
+    stride: number,
+    praying: boolean,
+    camera: T.Camera,
+    width: number,
+    height: number,
+  ) {
+    if (this.disposed) return;
+    if (this.held) this.held.group.visible = false;
+    this.head.dataset.praying = String(praying);
+    this.group.position.set(
+      x,
+      0.08 + (praying ? 0 : Math.abs(stride) * 0.04),
+      z,
+    );
+    this.group.rotation.y = praying ? Math.PI : yaw;
+    this.torso.position.y = praying ? -0.3 : 0;
+    this.torso.rotation.x = 0;
+    this.torso.updateMatrix();
+    this.legs.forEach((leg, i) => {
+      leg.position.y = praying ? 0.18 : 0.43;
+      leg.rotation.x = praying ? -1.1 : (i === 0 ? 1 : -1) * stride;
+    });
+    for (const arm of this.arms) {
+      const shoulder = new T.Vector3(arm.side * 0.28, praying ? 0.72 : 1.02, 0);
+      const hand = new T.Vector3(
+        praying ? arm.side * 0.055 : arm.side * 0.32,
+        praying ? 0.72 : 0.55,
+        praying ? 0.32 : Math.sin(stride * (arm.side < 0 ? -1 : 1)) * 0.13,
+      );
+      const elbow = shoulder.clone().lerp(hand, 0.5);
+      elbow.x += arm.side * 0.08;
+      elbow.y -= 0.13;
+      this.bone(arm.upper, shoulder, elbow, 0.09);
+      this.bone(arm.lower, elbow, hand, 0.078);
+      arm.hand.position.copy(hand);
+    }
+    this.group.updateMatrixWorld(true);
+    const head = this.group.localToWorld(
+      new T.Vector3(0, praying ? 1.18 : 1.48, 0),
+    );
+    const screen = head.clone().project(camera),
+      upper = head
+        .clone()
+        .add(new T.Vector3(0, 0.37, 0))
+        .project(camera);
+    this.head.style.visibility = "visible";
+    this.head.style.width = `${Math.max(24, Math.min(42, Math.abs(upper.y - screen.y) * height))}px`;
+    this.head.style.transform = `translate(-50%,-50%) translate(${(screen.x * 0.5 + 0.5) * width}px,${(-screen.y * 0.5 + 0.5) * height}px)`;
+  }
   finish() {
-    if (!this.released) {
+    if (!this.released && this.held) {
       this.group.updateMatrixWorld(true);
       this.released = true;
       this.onRelease(new T.Vector3(-0.8, 0.035, 1.07), 0.52);
@@ -205,8 +260,10 @@ export class CeremonyAvatar {
     this.disposed = true;
     this.head.remove();
     this.photo.onerror = null;
-    this.held.group.removeFromParent();
-    disposeModel(this.held);
+    if (this.held) {
+      this.held.group.removeFromParent();
+      disposeModel(this.held);
+    }
     this.geometries.forEach((g) => g.dispose());
     this.materials.forEach((m) => m.dispose());
     this.group.removeFromParent();

@@ -27,3 +27,9 @@ Rows older than 30 days disappear from public queries but are **not automaticall
 ## Validation scope
 
 The repository includes SQL policy tests using a local PostgreSQL-compatible test database plus browser checks for local and mocked-online workflows. A real project's Auth, Storage and API settings still require the two-browser smoke test above after configuration; local tests do not establish a live Supabase deployment.
+
+## Temple room (Realtime Presence)
+
+The optional temple uses the existing public project URL, publishable key and anonymous session. No additional SQL is needed. Presence on the public channel `navait-temple-v1` keeps the currently connected room tabs visible and removes them after leaving or connection loss. Anonymous nickname avatars are not verified real-world identities. Public profile photos also appear on room avatars.
+
+If the room reports a connection failure, check the project's Realtime service/public-channel configuration and browser WebSocket connectivity. No service_role key should be added to the website. After a new deployment, enter from two browsers, move and sit in one, then exit and close its tab to verify the other browser updates. The repository's WebSocket tests use a mock server and cannot validate the real project's switches or quotas.

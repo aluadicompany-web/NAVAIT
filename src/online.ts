@@ -9,6 +9,9 @@ function db() {
   if (!url || !key) throw Error("ยังไม่ได้ตั้งค่าแม่น้ำออนไลน์");
   return (client ??= createClient(url, key));
 }
+export function realtimeClient() {
+  return db();
+}
 export function photoUrl(item: Krathong) {
   if (
     item.avatarPath &&
