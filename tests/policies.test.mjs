@@ -80,7 +80,31 @@ test("Supabase schema, RLS ownership, file paths, quotas and timestamp guards", 
       rows.rows.every((r) => Date.parse(r.created_at) > Date.now() - 60000),
     );
     for (let i = 0; i < 8; i++) await insert();
+    await insert(); // The 11th boat is allowed in testing mode.
+    await db.exec("reset role");
+    const restore = await readFile(
+      new URL(
+        "../supabase/migrations/production-restore-daily-limit.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    await db.exec(restore);
+    await session(a);
     await assert.rejects(() => insert(), /daily limit/);
+    await db.exec("reset role");
+    const disable = await readFile(
+      new URL(
+        "../supabase/migrations/testing-disable-daily-limit.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    await db.exec(disable);
+    await db.exec(disable);
+    await session(a);
+    await insert(); // An existing limited database is unlocked, with repeatable migration.
+
     const photo = `${a}/${crypto.randomUUID()}.jpg`;
     await db.query(
       "insert into storage.objects(bucket_id,name) values ('avatars',$1)",

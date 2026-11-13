@@ -115,7 +115,7 @@ export function onlineError(error: unknown) {
   if (/anonymous|signups/i.test(message))
     return "เข้าเล่นออนไลน์ไม่ได้ กรุณาให้ผู้ดูแลเปิด Anonymous Sign-ins ใน Supabase";
   if (/daily limit/i.test(message))
-    return "วันนี้ลอยครบ 10 กระทงแล้ว กลับมาลอยใหม่พรุ่งนี้นะ";
+    return "ลอยครบ 10 กระทงใน 24 ชั่วโมงแล้ว กรุณาลองใหม่ภายหลัง";
   if (/river full|avatar limit/i.test(message))
     return "พื้นที่แม่น้ำเต็มชั่วคราว กรุณาให้ผู้ดูแลจัดการข้อมูลเก่า";
   return "เชื่อมต่อแม่น้ำออนไลน์ไม่สำเร็จ กรุณาลองอีกครั้ง รูปและคำอธิษฐานยังอยู่ในฟอร์ม";

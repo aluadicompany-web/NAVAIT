@@ -20,14 +20,12 @@ grant select on public.krathongs to anon, authenticated;
 grant insert on public.krathongs to authenticated;
 
 -- Count under an advisory lock to keep concurrent inserts within the limits.
--- Clients cannot spoof timestamps to bypass the per-user limit.
+-- Testing mode: per-user daily limit is disabled. Server timestamps remain trusted.
+-- Before public launch, run migrations/production-restore-daily-limit.sql.
 create or replace function public.guard_krathong_insert() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
  perform pg_catalog.pg_advisory_xact_lock(823194701);
- if (select count(*) from public.krathongs where created_at > now() - interval '24 hours' and owner_id=new.owner_id) >= 10 then
-  raise exception 'daily limit: 10 krathongs per user';
- end if;
  if (select count(*) from public.krathongs) >= 1000 then
   raise exception 'river full: ask the owner to archive old entries';
  end if;
