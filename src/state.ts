@@ -65,8 +65,8 @@ export function makeKrathong(
     wish: wish.trim().slice(0, 100),
     color: designs[state.selected].color,
     design: state.selected,
-    x: 0.18 + Math.random() * 0.64,
-    y: 0.45 + Math.random() * 0.32,
+    x: 0.56 + Math.random() * 0.25,
+    y: 0.58 + Math.random() * 0.19,
     created: Date.now(),
   };
   return item;

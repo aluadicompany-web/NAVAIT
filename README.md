@@ -65,3 +65,11 @@ Online launches offer **แชร์กระทงของฉัน**; the wis
 Links use `?krathong=<UUID>` on the existing page, requiring no Render rewrite or SQL migration. Opening a link reads that row directly, highlights its boat, and opens its wish. The target stays included when the newest-30 list refreshes. The database's existing 30-day visibility policy still applies; expired, deleted, invalid, or unavailable targets show a clear message and a path to join the river. Only the generic site preview appears in social apps; this implementation does not generate per-boat social preview images.
 
 The browser suite also checks real Web Audio output samples and suspension, launch-effect cleanup, removed lower-left text, native/clipboard/manual share behavior, cancellation, and direct links to rows outside the newest 30. Service interactions use mocked responses; production configuration is unchanged.
+
+## Thai riverside festival scene
+
+`src/render/festival.ts` builds a stylized Thai temple with tiered red roofs and chofa, golden chedis, a low wooden landing, fair stalls, bunting, hanging lamps, and warm light strings. The landing sits close to the water and new boats glide from its end into the river over three simulation seconds. Existing saved boats retain their data and locations.
+
+Static architecture is merged into two vertex-colored meshes (lit surfaces and decorative lights). Sky lanterns use instancing: 18 on desktop and 10 on narrow screens. They rise slowly with a gentle sway; reduced motion freezes their positions and skips release animation. No downloaded models, image textures, extra point lights, shadow maps, or postprocessing are needed. The water shader adds warm fragmented festival reflections. The existing 30 fps and 1.5 pixel-ratio caps remain in place.
+
+Browser coverage checks lantern ascent, unchanged poses at a frozen simulation time, mobile/desktop instance counts, bounded scene batches, and the existing launch/profile/audio/share workflows. Inspect desktop and mobile screenshots and test actual mobile hardware before making frame-rate guarantees.

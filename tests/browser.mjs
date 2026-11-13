@@ -173,6 +173,41 @@ try {
   await page.waitForFunction(
     () => window.__audioContexts[0].state === "running",
   );
+  const festivalChecks = await page.evaluate(async () => {
+    const { Festival } = await import("/src/render/festival.ts");
+    const T = await import("/node_modules/three/build/three.module.js");
+    const festival = new Festival(),
+      camera = new T.PerspectiveCamera(39, 1, 0.1, 100);
+    const body = festival.group.children.find(
+      (mesh) => mesh.name === "Sky lanterns",
+    );
+    festival.update(1, camera, false);
+    const before = body.instanceMatrix.array[13];
+    festival.update(2, camera, false);
+    const after = body.instanceMatrix.array[13];
+    festival.update(2, camera, false);
+    const frozen = body.instanceMatrix.array[13];
+    const desktopCount = body.count;
+    festival.update(2, camera, true);
+    const mobileCount = body.count;
+    const meshes = festival.group.children.length;
+    const launchY = festival.launchPoint.y;
+    festival.dispose();
+    return {
+      rising: after > before,
+      stationary: after === frozen,
+      desktopCount,
+      mobileCount,
+      meshes,
+      launchY,
+    };
+  });
+  assert.equal(festivalChecks.rising, true);
+  assert.equal(festivalChecks.stationary, true);
+  assert.equal(festivalChecks.desktopCount, 18);
+  assert.equal(festivalChecks.mobileCount, 10);
+  assert.ok(festivalChecks.meshes < 12);
+  assert.equal(festivalChecks.launchY, 0);
   const image = await fixture(page);
   const selected = await crop(page, image);
   await page.locator("#profile-file").setInputFiles({

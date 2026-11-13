@@ -1,6 +1,7 @@
 import * as T from "three";
 import { state, type Krathong } from "./state";
 import { createKrathong, disposeModel, type Model } from "./render/krathong";
+import { Festival } from "./render/festival";
 import { createWater } from "./render/water";
 import { designs } from "./catalog";
 type Boat = {
@@ -10,6 +11,7 @@ type Boat = {
   offset: number;
   demo: boolean;
   focusedAt?: number;
+  releasedAt?: number;
 };
 export class River {
   private renderer: T.WebGLRenderer;
@@ -17,6 +19,7 @@ export class River {
   private camera = new T.PerspectiveCamera(39, 1, 0.1, 100);
   private boats: Boat[] = [];
   private water = createWater();
+  private festival = new Festival();
   private media = matchMedia("(prefers-reduced-motion: reduce)");
   private effect: {
     group: T.Group;
@@ -52,6 +55,7 @@ export class River {
     host.append(this.labels);
     this.scene.fog = new T.FogExp2(0x12383c, 0.021);
     this.scene.add(this.water.mesh);
+    this.scene.add(this.festival.group);
     this.scene.add(new T.HemisphereLight(0xc4e9ff, 0x427858, 2.4));
     const light = new T.DirectionalLight(0xffe0a4, 3.4);
     light.position.set(-3, 10, 5);
@@ -166,11 +170,8 @@ export class River {
     if (this.media.matches) return;
     const boat = this.boats.find((b) => b.item.id === id);
     if (!boat) return;
-    const mobile = this.width < 760;
-    const origin = this.point(
-      boat.item.x - 0.06,
-      mobile ? 0.48 + (boat.item.y - 0.45) * 0.65 : boat.item.y,
-    );
+    boat.releasedAt = this.time;
+    const origin = this.festival.launchPoint.clone();
     const group = new T.Group();
     group.position.copy(origin);
     this.scene.add(group);
@@ -311,6 +312,15 @@ export class River {
           : 0.48 + (item.y - 0.45) * 0.65
         : item.y;
       const p = this.point(sx, focusedAge === null ? sy : mobile ? 0.55 : 0.58);
+      if (boat.releasedAt !== undefined) {
+        const progress = Math.min(1, (this.time - boat.releasedAt) / 3);
+        p.lerpVectors(
+          this.festival.launchPoint,
+          p,
+          progress * progress * (3 - 2 * progress),
+        );
+        if (progress === 1) boat.releasedAt = undefined;
+      }
       model.group.position.copy(p);
       model.group.position.y = Math.sin(this.time * 1.4 + item.x * 9) * 0.035;
       model.group.rotation.set(
@@ -332,11 +342,13 @@ export class River {
       screen.project(this.camera);
       label.style.transform = `translate(-50%,-100%) translate(${(screen.x * 0.5 + 0.5) * this.width}px,${(-screen.y * 0.5 + 0.5) * this.height}px)`;
     }
+    this.festival.update(this.time, this.camera, mobile);
     this.updateEffect();
     this.renderer.render(this.scene, this.camera);
   };
   dispose() {
     this.clearEffect();
+    this.festival.dispose();
     this.renderer.setAnimationLoop(null);
     window.removeEventListener("resize", this.resize);
     this.media.removeEventListener("change", this.motionChange);
