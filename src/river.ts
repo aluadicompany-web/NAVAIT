@@ -4,6 +4,8 @@ import { createKrathong, disposeModel, type Model } from "./render/krathong";
 import { Festival } from "./render/festival";
 import { createWater } from "./render/water";
 import { designs } from "./catalog";
+import { CostumePool } from "./ceremony";
+import { CeremonyAvatar } from "./render/avatar";
 import { riverLane, keepInChannel } from "./navigation";
 type Boat = {
   item: Krathong;
@@ -13,12 +15,17 @@ type Boat = {
   demo: boolean;
   focusedAt?: number;
   releasedAt?: number;
+  releaseOrigin?: T.Vector3;
+  releaseScale?: number;
 };
 export class River {
   private renderer: T.WebGLRenderer;
   private scene = new T.Scene();
   private camera = new T.PerspectiveCamera(39, 1, 0.1, 100);
   private boats: Boat[] = [];
+  private actor: CeremonyAvatar | null = null;
+  private pendingIds = new Set<string>();
+  private costumes = new CostumePool();
   private water = createWater();
   private festival = new Festival();
   private media = matchMedia("(prefers-reduced-motion: reduce)");
@@ -160,19 +167,63 @@ export class River {
       }
     }
   }
+  walkAndRelease(
+    item: Krathong,
+    photo: string | undefined,
+    onRelease: () => void,
+  ): Promise<void> {
+    this.actor?.finish();
+    this.actor = null;
+    for (const sample of this.boats.filter((b) => b.demo)) {
+      this.scene.remove(sample.model.group);
+      disposeModel(sample.model);
+      sample.label.remove();
+    }
+    this.boats = this.boats.filter((b) => !b.demo);
+    this.pendingIds.add(item.id);
+    return new Promise((resolve) => {
+      const release = (origin: T.Vector3, scale: number) => {
+        this.pendingIds.delete(item.id);
+        if (!this.boats.some((b) => b.item.id === item.id)) this.addBoat(item);
+        const boat = this.boats.find((b) => b.item.id === item.id)!;
+        boat.releasedAt = this.media.matches ? undefined : this.time;
+        boat.releaseOrigin = this.media.matches ? undefined : origin;
+        boat.releaseScale = this.media.matches ? undefined : scale;
+        this.celebrate(item.id, origin);
+        onRelease();
+        resolve();
+      };
+      const actor = new CeremonyAvatar(
+        item,
+        this.costumes.next(),
+        this.costumes.side(),
+        photo,
+        release,
+        () => {
+          if (this.actor === actor) this.actor = null;
+          delete this.host.dataset.ceremony;
+        },
+      );
+      this.actor = actor;
+      this.scene.add(actor.group);
+      this.labels.append(actor.head);
+      this.host.dataset.ceremony = "active";
+    });
+  }
   focusBoat(id: string) {
     const boat = this.boats.find((b) => b.item.id === id);
     if (!boat) return;
     boat.focusedAt = this.time;
     boat.label.classList.add("is-focused");
   }
-  celebrate(id: string) {
+  celebrate(id: string, releaseOrigin?: T.Vector3) {
     this.clearEffect();
     if (this.media.matches) return;
     const boat = this.boats.find((b) => b.item.id === id);
     if (!boat) return;
     boat.releasedAt = this.time;
-    const origin = this.festival.launchPoint.clone();
+    const origin = (releaseOrigin ?? this.festival.launchPoint).clone();
+    origin.y = 0;
     const group = new T.Group();
     group.position.copy(origin);
     this.scene.add(group);
@@ -267,7 +318,9 @@ export class River {
     }
     this.boats = this.boats.filter((b) => b.demo || ids.has(b.item.id));
     const existing = new Set(this.boats.map((b) => b.item.id));
-    for (const item of items) if (!existing.has(item.id)) this.addBoat(item);
+    for (const item of items)
+      if (!existing.has(item.id) && !this.pendingIds.has(item.id))
+        this.addBoat(item);
   }
   private renderThumbnails() {
     this.renderer.setSize(180, 150, false);
@@ -291,12 +344,20 @@ export class River {
   private frame = (now: number) => {
     if (now - this.lastFrame < 33) return;
     this.lastFrame = now;
+    const actorDelta = this.last ? Math.min((now - this.last) / 1000, 0.2) : 0;
     const delta = this.last ? Math.min((now - this.last) / 1000, 0.05) : 0;
     this.last = now;
     if (!this.running || document.hidden) return;
     if (!this.media.matches) this.time += delta;
     this.water.material.uniforms.time.value = this.time;
     const mobile = this.width < 760;
+    this.actor?.update(
+      actorDelta,
+      this.media.matches,
+      this.camera,
+      this.width,
+      this.height,
+    );
     for (const boat of this.boats) {
       const { item, model, label } = boat;
       const age = this.time - boat.offset;
@@ -312,21 +373,34 @@ export class River {
       if (boat.releasedAt !== undefined) {
         const progress = Math.min(1, (this.time - boat.releasedAt) / 3);
         p.lerpVectors(
-          this.festival.launchPoint,
+          boat.releaseOrigin ?? this.festival.launchPoint,
           p,
           progress * progress * (3 - 2 * progress),
         );
         if (progress === 1) boat.releasedAt = undefined;
       }
       model.group.position.copy(p);
-      model.group.position.y = Math.sin(this.time * 1.4 + item.x * 9) * 0.035;
+      const releaseProgress =
+        boat.releasedAt === undefined
+          ? 1
+          : Math.min(1, (this.time - boat.releasedAt) / 3);
+      model.group.position.y = T.MathUtils.lerp(
+        boat.releaseOrigin?.y ?? 0,
+        Math.sin(this.time * 1.4 + item.x * 9) * 0.035,
+        releaseProgress,
+      );
+      const targetYaw = item.x * 3 + Math.sin(this.time * 0.3 + item.y) * 0.08;
       model.group.rotation.set(
         Math.sin(this.time * 1.1 + item.x) * 0.025,
-        item.x * 3 + Math.sin(this.time * 0.3 + item.y) * 0.08,
+        boat.releaseOrigin
+          ? T.MathUtils.lerp(0, targetYaw, releaseProgress)
+          : targetYaw,
         Math.cos(this.time * 1.3 + item.y) * 0.025,
       );
       const scale = mobile ? 0.72 : 1;
-      model.group.scale.setScalar(scale);
+      model.group.scale.setScalar(
+        T.MathUtils.lerp(boat.releaseScale ?? scale, scale, releaseProgress),
+      );
       const flicker =
         1 +
         Math.sin(this.time * 12 + item.x * 21) * 0.12 +
@@ -345,6 +419,8 @@ export class River {
   };
   dispose() {
     this.clearEffect();
+    this.actor?.finish();
+    this.actor = null;
     this.festival.dispose();
     this.renderer.setAnimationLoop(null);
     window.removeEventListener("resize", this.resize);

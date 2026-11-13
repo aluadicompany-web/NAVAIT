@@ -33,7 +33,7 @@ Nine labeled example crafts appear when no player boats have been saved, then di
 
 ## Profiles and shared river
 
-The photo picker accepts common image formats and lets players drag, zoom (1–4×), or use directional buttons to crop. Only a compressed 256 × 256 JPEG (under 60 KB) is saved; original images never upload. Files above 30 MB / 60 megapixels are rejected with guidance. Photos are displayed inside the wish dialog after clicking a boat's name, never above the boat. Players without a photo receive a generated avatar.
+The photo picker accepts common image formats and lets players drag, zoom (1–4×), or use directional buttons to crop. Only a compressed 256 × 256 JPEG (under 60 KB) is saved; original images never upload. Files above 30 MB / 60 megapixels are rejected with guidance. Photos are displayed on the submitting player's circular avatar head during the launch ceremony and inside the wish dialog after clicking a boat's name; they do not float above boats. Players without a photo receive a generated avatar.
 
 Without online settings the game saves up to 30 boats with their cropped photos in this browser. When both public Supabase settings are configured, it uses anonymous sessions, Storage, and a shared river (latest 30 boats, refresh every 15 seconds while visible). Local boats are not automatically published when online mode is enabled.
 
@@ -80,3 +80,14 @@ Browser coverage checks lantern ascent, unchanged poses at a frozen simulation t
 `src/navigation.ts` defines a common safe channel and release position. All boats (including examples, old saves, focused shared boats, resized views, and newly launched boats) remain beyond the landing with room for the largest craft. This changes rendering, not saved wishes or profile data. Navigation tests sample portrait/landscape viewports, all legacy depth ranges, horizontal drift/wrap and launch interpolation with a conservative craft radius.
 
 The temple and dock are brighter. Warm lamps vary slowly with small, out-of-phase changes; shared shader uniforms animate decorative-light brightness without splitting the static geometry batches. Two shadow-free lights gently illuminate actual surfaces, the soft lamp halos breathe, and the water's warm reflections ripple. These changes use the same paused/reduced-motion simulation clock, so reduced motion freezes the lighting too.
+
+
+## Avatar launch ceremony
+
+After a successful save, the submitting player sees a gender-neutral chibi body carrying their selected 3D krathong. A circular portrait (or generated default avatar) replaces the head, with the player's name above it. Entry is randomly from the left or right bank, followed by a walk along the pier, a bow/lower gesture, one boat handoff, and a walk back. Success and sharing controls appear at the actual release, not before. Shirt colors are randomly drawn without repeating within the current page session.
+
+`src/ceremony.ts` owns the timeline and outfit selection. `src/render/avatar.ts` renders the jointed body, arms following the carried bowl, portrait and name. `River.walkAndRelease` holds the saved boat out of the water renderer until the handoff; polling cannot spawn a duplicate while the ceremony is pending. The boat begins at the carried transform and scale, then smoothly joins the safe channel. Reduced-motion mode skips the walking path and long wait. Hidden tabs pause the ceremony. Temporary body geometry and portrait elements are removed after departure; at most one actor is rendered.
+
+The ceremony is a local presentation for the person submitting. Supabase continues sharing saved krathongs, photos and wishes; this version does not broadcast or synchronize character walking between viewers. No SQL changes or new storage uploads are required. A save completes before the ceremony, so leaving the page during a walk does not discard the saved wish.
+
+Timeline tests cover both entry sides, pier alignment, release clearance, reduced motion, and nonrepeating outfit allocation. Browser coverage checks the uploaded portrait/name, walk/landing/lowering phases, no early or duplicate water boat, delayed success, and existing profile/audio/share workflows.

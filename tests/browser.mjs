@@ -248,9 +248,38 @@ try {
   const oscillatorsBefore = await page.evaluate(
     () => window.__audioContexts[0].__oscillators,
   );
+  await page.evaluate(() => {
+    window.__ceremonyPhases = [];
+    window.addEventListener("ceremony-phase", (event) =>
+      window.__ceremonyPhases.push(event.detail.phase),
+    );
+  });
   await page.locator("button[type=submit]").click();
+  await page.locator('.ceremony-avatar-head[data-phase="approach"]').waitFor();
+  assert.equal(
+    await page.locator(".ceremony-avatar-head img").getAttribute("src"),
+    selected,
+  );
+  assert.equal(
+    await page.locator(".ceremony-avatar-head span").textContent(),
+    "ดาวน้อย",
+  );
+  assert.equal(await page.locator(".boat-label:not(.sample)").count(), 0);
+  assert.equal(await page.locator("#after").isVisible(), false);
+  await page
+    .locator('.ceremony-avatar-head[data-phase="lower"]')
+    .waitFor({ timeout: 30000 });
+  await page.screenshot({
+    path: "/tmp/navait-profile-qa/avatar-lower-mobile.png",
+  });
+
   await page.locator("#after").waitFor({ state: "visible" });
   await page.locator('#river[data-launch-effect="active"]').waitFor();
+  assert.equal(await page.locator(".boat-label:not(.sample)").count(), 1);
+  const phases = await page.evaluate(() => window.__ceremonyPhases);
+  for (const phase of ["approach", "pier", "lower", "released"])
+    assert.ok(phases.includes(phase));
+
   assert.ok(
     (await page.evaluate(() => window.__audioContexts[0].__oscillators)) >=
       oscillatorsBefore + 3,
