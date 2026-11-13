@@ -331,7 +331,7 @@ try {
     ),
   );
   const generated = await page.locator("#dialog-wish").textContent();
-  assert.ok(generated.includes("คำอวยพรจาก NAVAIT"));
+  assert.ok(generated.startsWith("ขอให้") && !generated.includes("NAVAIT"));
   assert.equal(
     await page.evaluate(
       () => JSON.parse(localStorage.getItem("navait.krathongs.v1")).at(-1).wish,
@@ -595,7 +595,7 @@ try {
   await p.locator("#name").fill("รับคำอวยพร");
   await p.locator("button[type=submit]").click();
   await p.locator("#after").waitFor({ state: "visible" });
-  assert.ok(rows.at(-1).wish.includes("คำอวยพรจาก NAVAIT"));
+  assert.ok(rows.at(-1).wish.startsWith("ขอให้") && !rows.at(-1).wish.includes("NAVAIT"));
   assert.ok(rows.at(-1).wish.length <= 100);
   const old = rows[0];
   for (let i = 0; i < 35; i++)

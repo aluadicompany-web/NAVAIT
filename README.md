@@ -122,6 +122,6 @@ Prayer cushions use rounded, slightly domed geometry with a shallow center tuft,
 
 ## Automatic wishes from NAVAIT
 
-`src/blessings.ts` contains 20 distinct Thai blessings. A blank or whitespace-only wish is resolved at creation time, signed “คำอวยพรจาก NAVAIT”, and stored in the existing `wish` field so the same text appears after refresh, on other devices and through a shared link. Authored wishes are preserved using the existing trim/100-character limit. All generated text including attribution fits that limit; no SQL migration is needed.
+`src/blessings.ts` contains 20 distinct Thai personal wishes, including love, family, health and happiness. A blank or whitespace-only wish is resolved at creation time, stored in the existing `wish` field so the same text appears after refresh, on other devices and through a shared link. Authored wishes are preserved using the existing trim/100-character limit. All generated text fits that limit; no SQL migration is needed.
 
 Each browser uses a persisted shuffled deck, drawing all 20 before a new cycle and avoiding an adjacent duplicate at the cycle boundary. If storage is unavailable it falls back to an in-memory deck. This does not guarantee different messages across different players/browsers. Older saved records with an empty wish show a stable, ID-derived blessing when opened, without modifying their stored data.

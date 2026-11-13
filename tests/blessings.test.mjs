@@ -5,15 +5,17 @@ import {
   BlessingDeck,
   resolveWish,
   blessingForId,
+  displayWish,
 } from "../src/blessings.ts";
-test("20 unique attributed blessings fit the existing database length", () => {
+test("20 unique personal wishes fit the existing database length", () => {
   assert.equal(BLESSINGS.length, 20);
   assert.equal(new Set(BLESSINGS).size, 20);
   const deck = new BlessingDeck(null, () => 0.42);
   for (let i = 0; i < 20; i++) {
     const wish = deck.draw();
     assert.ok(wish.length <= 100);
-    assert.ok(wish.includes("คำอวยพรจาก NAVAIT"));
+    assert.ok(BLESSINGS.includes(wish));
+    assert.ok(!wish.includes("NAVAIT"));
   }
 });
 test("the shuffle deck has no repeats per cycle, survives reloads and avoids boundary duplicates", () => {
@@ -48,6 +50,11 @@ test("only empty/whitespace input gets a blessing; authored wishes and legacy fa
   assert.ok(
     new BlessingDeck({ remaining: [999, -1], last: "bad" })
       .draw()
-      .includes("NAVAIT"),
+      .startsWith("ขอให้"),
   );
+});
+
+test("previous automatic wishes hide attribution while ordinary wishes stay intact", () => {
+  assert.equal(displayWish("ขอให้มีความสุข\n— คำอวยพรจาก NAVAIT", "old"), "ขอให้มีความสุข");
+  assert.equal(displayWish("ขอให้สมหวัง", "own"), "ขอให้สมหวัง");
 });
