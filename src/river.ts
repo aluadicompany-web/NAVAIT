@@ -146,6 +146,19 @@ export class River {
       }
     }
   }
+  syncBoats(items: Krathong[]) {
+    const ids = new Set(items.map((item) => item.id));
+    for (const boat of this.boats.filter(
+      (b) => !b.demo && !ids.has(b.item.id),
+    )) {
+      this.scene.remove(boat.model.group);
+      disposeModel(boat.model);
+      boat.label.remove();
+    }
+    this.boats = this.boats.filter((b) => b.demo || ids.has(b.item.id));
+    const existing = new Set(this.boats.map((b) => b.item.id));
+    for (const item of items) if (!existing.has(item.id)) this.addBoat(item);
+  }
   private renderThumbnails() {
     this.renderer.setSize(180, 150, false);
     designs.forEach((_, i) => {

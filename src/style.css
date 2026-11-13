@@ -718,3 +718,142 @@ footer {
     padding: 10px;
   }
 }
+.profile-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 5px 0 8px;
+}
+.profile-choice img {
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+  border: 2px solid #dce4d3;
+}
+.profile-choice p {
+  font-size: 9px;
+  color: #7b8a7e;
+  margin: 3px 0;
+}
+.photo-button {
+  cursor: pointer;
+  display: inline-block;
+  border: 1px solid #b7c8b4;
+  border-radius: 7px;
+  padding: 6px 9px;
+  font-size: 11px;
+  margin: 0;
+}
+.photo-button span {
+  color: #7b8a7e;
+  font-size: 9px;
+}
+.photo-status {
+  font-size: 10px;
+  color: #6d7e68;
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+#remove-photo {
+  background: none;
+  border: 0;
+  color: #8d6459;
+  font-size: 10px;
+  padding: 5px;
+  margin-left: auto;
+}
+#launch-status {
+  font-size: 11px;
+  line-height: 1.7;
+  color: #936445;
+  overflow-wrap: anywhere;
+  margin: 8px 0;
+}
+#launch-status:empty {
+  display: none;
+}
+.dialog-avatar {
+  display: block;
+  margin: 5px auto 18px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid #e2e8d7;
+}
+#crop-dialog {
+  width: min(410px, 94vw);
+  padding: 22px;
+  max-height: 95svh;
+  overflow: auto;
+}
+#crop-dialog h2 {
+  margin-top: 0;
+  font-size: 20px;
+}
+#crop-dialog > p {
+  font-size: 11px;
+  margin: 8px 0 15px;
+  color: #71836d;
+}
+.crop-stage {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1;
+  margin: 0 auto 14px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #1d3f3b;
+}
+#crop-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+#crop-canvas:active {
+  cursor: grabbing;
+}
+.crop-mask {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle closest-side,
+    transparent 98%,
+    #122e3499 100%
+  );
+}
+#crop-zoom {
+  padding: 0;
+  accent-color: #315e4c;
+  margin: 12px 0 16px;
+  box-shadow: none;
+}
+.crop-pan {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+.crop-pan button,
+.crop-actions > button:not(.primary) {
+  border: 1px solid #c8d4be;
+  background: #edf0e3;
+  color: #315e4c;
+  border-radius: 7px;
+  padding: 8px 11px;
+  font-size: 12px;
+}
+.crop-actions {
+  display: flex;
+  gap: 10px;
+}
+.crop-actions .primary {
+  flex: 1;
+}
+.crop-output {
+  font-size: 10px !important;
+}
+.privacy {
+  line-height: 1.7;
+}

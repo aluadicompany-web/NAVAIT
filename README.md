@@ -31,12 +31,27 @@ Nine labeled example crafts appear when no player boats have been saved, then di
 - `src/state.ts`: browser persistence and launch data.
 - `src/main.ts`: form, craft picker and wish dialog.
 
+## Profiles and shared river
+
+The photo picker accepts common image formats and lets players drag, zoom (1–4×), or use directional buttons to crop. Only a compressed 256 × 256 JPEG (under 60 KB) is saved; original images never upload. Files above 30 MB / 60 megapixels are rejected with guidance. Photos are displayed inside the wish dialog after clicking a boat's name, never above the boat. Players without a photo receive a generated avatar.
+
+Without online settings the game saves up to 30 boats with their cropped photos in this browser. When both public Supabase settings are configured, it uses anonymous sessions, Storage, and a shared river (latest 30 boats, refresh every 15 seconds while visible). Local boats are not automatically published when online mode is enabled.
+
+Follow [supabase/README.md](supabase/README.md) to create a Free project, apply [supabase/setup.sql](supabase/setup.sql), enable anonymous sign-ins, and add the two public build-time variables in Render. Never put a service_role, secret key, or database password in Vite variables. Photos and wishes in shared mode are public content; showing them on click is not a privacy boundary. Live Supabase configuration is required before claiming shared operation works.
+
 ## Limits
 
-This prototype uses nickname entry, not authenticated accounts. It does not share data between players or devices. Google sign-in and a shared river require a backend and identity-provider configuration.
+There is no Google/email login or cross-device identity recovery. A WebGL2-capable browser is required; a visible error explains failed initialization. No external image, font or model service is required. Online mode needs the configured Supabase service. Application quotas reduce ordinary storage use but cannot guarantee free operation under unlimited traffic. See the Supabase guide for cleanup, retention and usage limits.
 
-A WebGL2-capable browser is required. A visible error explains when 3D initialization fails; launching is disabled in that case. No external image, font, model or API service is required.
+## Validation
 
-## Browser validation
+```sh
+npm test
+npm run build
+npx playwright install chromium  # once, if no browser is installed
+npm run test:browser
+```
 
-Check every design preview and launch each variant. Verify names and wishes, rightward drift, animated water and candlelight, refresh persistence, old-format save migration, mobile layout without horizontal overflow, and reduced-motion behavior. Test real mobile hardware before making performance guarantees.
+For an existing system Chromium, run `BROWSER_EXECUTABLE=/usr/bin/chromium npm run test:browser` instead. Browser tests start their own Vite processes on ports 5180 and 5181, use synthetic images and a mocked Supabase service, and save screenshots under `/tmp/navait-profile-qa`. No real project key is needed. Database tests run the SQL twice in PGlite and verify RLS ownership, path validation, quotas, and timestamp enforcement. These tests do not replace validation against a real Supabase project after setup.
+
+For the 3D scene, check all nine previews, rightward drift, water and candle animation, desktop/mobile layout and reduced motion. Actual mobile performance still needs a physical-device check.

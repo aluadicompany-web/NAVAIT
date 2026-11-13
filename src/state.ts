@@ -1,3 +1,4 @@
+import { isLocalPhoto } from "./profile";
 import { designs } from "./catalog";
 export type Krathong = {
   id: string;
@@ -8,6 +9,8 @@ export type Krathong = {
   y: number;
   created: number;
   design?: number;
+  photo?: string;
+  avatarPath?: string;
 };
 const colors = [0xf0a6bf, 0xffd18b, 0xc1b4ef];
 const key = "navait.krathongs.v1";
@@ -31,6 +34,7 @@ export function readKrathongs(): Krathong[] {
           .slice(-30)
           .map((v) => ({
             ...v,
+            photo: isLocalPhoto(v.photo) ? v.photo : undefined,
             design:
               Number.isInteger(v.design) &&
               v.design! >= 0 &&
@@ -49,9 +53,14 @@ export const state = {
   name: "",
   wish: "",
 };
-export function launch(name: string, wish: string): Krathong {
+export function makeKrathong(
+  name: string,
+  wish: string,
+  photo?: string,
+): Krathong {
   const item = {
     id: crypto.randomUUID(),
+    photo,
     name: name.trim().slice(0, 24),
     wish: wish.trim().slice(0, 100),
     color: designs[state.selected].color,
@@ -60,11 +69,14 @@ export function launch(name: string, wish: string): Krathong {
     y: 0.45 + Math.random() * 0.32,
     created: Date.now(),
   };
-  state.krathongs = [...state.krathongs, item].slice(-30);
-  try {
-    localStorage.setItem(key, JSON.stringify(state.krathongs));
-  } catch {
-    /* Play remains available when storage is disabled. */
-  }
   return item;
+}
+export function saveLocal(item: Krathong) {
+  const next = [...state.krathongs, item].slice(-30);
+  try {
+    localStorage.setItem(key, JSON.stringify(next));
+  } catch {
+    throw Error("พื้นที่เก็บข้อมูลบนเครื่องเต็ม กรุณาลบข้อมูลเก่าของเว็บหรือทดลองเบราว์เซอร์อื่น");
+  }
+  state.krathongs = next;
 }
