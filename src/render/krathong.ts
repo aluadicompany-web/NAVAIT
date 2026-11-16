@@ -176,6 +176,28 @@ export function createKrathong(index: number): Model {
   part(cylinder, 0x3c7551, 0, 0.08, 0, 0.73, 0.17, 0.73);
   ring(28, 0.68, 0.16, 0x85a55a, 0.06);
   switch (design.kind) {
+    case "rose":
+      leaves(14, 0.6, 0.28, 0.65);
+      for (let layer = 0; layer < 4; layer++)
+        lotus(12 - layer * 2, 0.48 - layer * 0.1, 0.28 + layer * 0.1,
+          [0x9c244b, 0xc63b62, 0xe56780, 0xffa5ad][layer], 0.45 - layer * 0.08);
+      ring(18, 0.64, 0.25, 0xffefce, 0.055);
+      break;
+    case "baisri":
+      leaves(16, 0.6, 0.34, 0.8);
+      leaves(12, 0.38, 0.57, 0.7);
+      leaves(8, 0.2, 0.78, 0.55);
+      part(cone, 0x4d965c, 0, 0.82, -0.14, 0.17, 0.7, 0.16);
+      ring(18, 0.54, 0.32, 0xfff2d7, 0.07);
+      for (const side of [-1, 1]) for (let j = 0; j < 5; j++)
+        part(sphere, j === 4 ? 0xe7a839 : 0xfff1d6, side * 0.53, 0.3 - j * 0.07, 0.15, 0.055, 0.06, 0.055);
+      break;
+    case "ivory":
+      lotus(12, 0.5, 0.25, 0xc4943f, 0.45);
+      lotus(10, 0.39, 0.37, 0xffe4a0, 0.4);
+      lotus(8, 0.25, 0.48, 0xfff8e4, 0.34);
+      ring(12, 0.24, 0.55, 0xe4b850, 0.055);
+      break;
     case "leaf":
       leaves(16, 0.61, 0.38);
       leaves(12, 0.42, 0.34, 0.7);

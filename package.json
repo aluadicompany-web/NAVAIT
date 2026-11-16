@@ -10,7 +10,8 @@
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node tests/browser.mjs",
     "test:temple": "node tests/temple-browser.mjs",
-    "test:fair": "node tests/fair-browser.mjs"
+    "test:fair": "node tests/fair-browser.mjs",
+    "test:evolution": "node tests/evolution-browser.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.16",

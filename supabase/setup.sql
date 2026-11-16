@@ -5,7 +5,7 @@ create table if not exists public.krathongs (
  owner_id uuid not null references auth.users(id) on delete cascade default auth.uid(),
  name text not null check (char_length(btrim(name)) between 1 and 24),
  wish text not null default '' check (char_length(wish) <= 100),
- design smallint not null check (design between 0 and 8),
+ design smallint not null check (design between 0 and 11),
  color integer not null check (color between 0 and 16777215),
  x double precision not null check (x between 0.05 and 0.95),
  y double precision not null check (y between 0.45 and 0.8),

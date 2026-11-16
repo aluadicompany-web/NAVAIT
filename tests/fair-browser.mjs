@@ -16,6 +16,9 @@ try {
   await page.locator('#after').waitFor({state:'visible',timeout:45000});
   await page.locator('#enter-fair').click();
   await page.locator('.fair-room').waitFor();
+  await page.waitForFunction(()=>Number(document.querySelector('.fair-room canvas').dataset.drawCalls)>0);
+  assert.equal(await page.locator('.fair-room canvas').getAttribute('data-renderer'),'three-webgl');
+  assert.ok(Number(await page.locator('.fair-room canvas').getAttribute('data-draw-calls'))<100);
   await page.waitForTimeout(500);
   await page.screenshot({path:'/tmp/navait-fair-qa/entrance.png'});
   const x=()=>page.locator('.fair-room').getAttribute('data-player-x').then(Number);
@@ -41,6 +44,10 @@ try {
   await page.waitForTimeout(600);
   assert.notEqual(await page.locator('.fair-room canvas').evaluate(c=>c.toDataURL()),frameA);
   await page.emulateMedia({reducedMotion:'reduce'});
+  await page.waitForFunction(()=>Number(document.querySelector('.fair-room canvas').dataset.wheelAngle)===0);
+  const frozen=await page.locator('.fair-room canvas').getAttribute('data-wheel-angle');
+  await page.waitForTimeout(250);
+  assert.equal(await page.locator('.fair-room canvas').getAttribute('data-wheel-angle'),frozen);
   await page.locator('#fair-interact').click();assert.equal(await page.locator('.fair-room').getAttribute('data-riding'),'false');
   await page.locator('[data-stop="4"]').click();
   await page.waitForFunction(()=>Math.abs(Number(document.querySelector('.fair-room').dataset.playerX)-2860)<8,null,{timeout:15000});
@@ -67,6 +74,14 @@ try {
   await page.locator('#leave-fair').click();
   await page.locator('.fair-room').waitFor({state:'detached'});
 
+  // A new 3D context must pause safely and recover without losing the room.
+  await page.locator('#open-fair').click();await page.locator('.fair-room').waitFor();
+  await page.evaluate(()=>{window.__fairGL=document.querySelector('.fair-room canvas').getContext('webgl2').getExtension('WEBGL_lose_context');window.__fairGL.loseContext();});
+  await page.locator('.fair-context-status').waitFor({state:'visible'});
+  const pausedX=await x();await page.keyboard.down('ArrowRight');await page.waitForTimeout(350);await page.keyboard.up('ArrowRight');assert.equal(await x(),pausedX);
+  await page.evaluate(()=>window.__fairGL.restoreContext());
+  await page.locator('.fair-context-status').waitFor({state:'hidden'});
+  await page.locator('#leave-fair').click();
   assert.deepEqual(errors,[]);
   console.log('PASS fair: launch entry, walking/camera, balloons 5 throws/reset, wheel ride/exit, wishing stars, mobile controls, return and reopen; no browser errors. Screenshots: /tmp/navait-fair-qa');
 } finally {await browser?.close();server.kill();}

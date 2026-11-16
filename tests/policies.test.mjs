@@ -59,8 +59,11 @@ test("Supabase schema, RLS ownership, file paths, quotas and timestamp guards", 
     await assert.rejects(() => insert());
     await session(a);
     await insert();
+    await db.exec('begin');
+    for (const design of [9, 10, 11]) await insert(a, { design });
+    await db.exec('rollback');
     await assert.rejects(() => insert(b));
-    await assert.rejects(() => insert(a, { design: 9 }));
+    await assert.rejects(() => insert(a, { design: 12 }));
     await assert.rejects(() =>
       insert(a, { avatar_path: `${b}/${crypto.randomUUID()}.jpg` }),
     );
@@ -170,4 +173,20 @@ test("Supabase schema, RLS ownership, file paths, quotas and timestamp guards", 
   } finally {
     await db.close();
   }
+});
+
+test('12-design migration is repeatable and preserves existing rows and photos', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`create table public.krathongs(id int primary key,design smallint not null check(design between 0 and 8),wish text,avatar_path text);
+      insert into public.krathongs values(1,8,'keep my wish','keep/my-photo.jpg');`);
+    await assert.rejects(()=>db.exec('insert into public.krathongs values(2,9,null,null)'));
+    const before=(await db.query('select * from public.krathongs')).rows;
+    const migration=await readFile(new URL('../supabase/migrations/expand-krathong-designs.sql',import.meta.url),'utf8');
+    await db.exec(migration);await db.exec(migration);
+    assert.deepEqual((await db.query('select * from public.krathongs')).rows,before);
+    for(const design of [9,10,11])await db.query('insert into public.krathongs(id,design) values($1,$2)',[design,design]);
+    for(const design of [-1,12])await assert.rejects(()=>db.query('insert into public.krathongs(id,design) values($1,$2)',[design,design]));
+    assert.equal((await db.query('select count(*)::int as n from public.krathongs')).rows[0].n,4);
+  } finally { await db.close(); }
 });

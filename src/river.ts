@@ -6,7 +6,7 @@ import { createWater } from "./render/water";
 import { designs } from "./catalog";
 import { CostumePool } from "./ceremony";
 import { CeremonyAvatar } from "./render/avatar";
-import { riverLane, keepInChannel } from "./navigation";
+import { riverLane, keepInChannel, spreadBoats } from "./navigation";
 type Boat = {
   item: Krathong;
   model: Model;
@@ -23,6 +23,7 @@ export class River {
   private scene = new T.Scene();
   private camera = new T.PerspectiveCamera(39, 1, 0.1, 100);
   private boats: Boat[] = [];
+  private layout = new Map<string, { x: number; y: number }>();
   private actor: CeremonyAvatar | null = null;
   private pendingIds = new Set<string>();
   private costumes = new CostumePool();
@@ -167,6 +168,7 @@ export class River {
         this.boats = this.boats.filter((b) => b !== old);
       }
     }
+    this.layout = spreadBoats(this.boats.map(b => b.item.id));
   }
   walkAndRelease(
     item: Krathong,
@@ -318,6 +320,7 @@ export class River {
       boat.label.remove();
     }
     this.boats = this.boats.filter((b) => b.demo || ids.has(b.item.id));
+    this.layout = spreadBoats(this.boats.map(b => b.item.id));
     const existing = new Set(this.boats.map((b) => b.item.id));
     for (const item of items)
       if (!existing.has(item.id) && !this.pendingIds.has(item.id))
@@ -361,15 +364,16 @@ export class River {
     );
     for (const boat of this.boats) {
       const { item, model, label } = boat;
-      const age = this.time - boat.offset;
+      const age = this.time;
+      const layout = this.layout.get(item.id) ?? item;
       // Every boat travels rightward with the current and re-enters upstream.
       const focusedAge =
         boat.focusedAt === undefined ? null : this.time - boat.focusedAt;
       const sx =
-        (((focusedAge === null ? item.x : 0.56) + (focusedAge ?? age) * 0.009) %
+        (((focusedAge === null ? layout.x : 0.56) + (focusedAge ?? age) * 0.009) %
           1.12) -
         0.06;
-      const sy = riverLane(focusedAge === null ? item.y : 0.64, mobile);
+      const sy = riverLane(focusedAge === null ? layout.y : 0.64, mobile);
       const p = keepInChannel(this.point(sx, sy));
       if (boat.releasedAt !== undefined) {
         const progress = Math.min(1, (this.time - boat.releasedAt) / 3);
@@ -398,7 +402,8 @@ export class River {
           : targetYaw,
         Math.cos(this.time * 1.3 + item.y) * 0.025,
       );
-      const scale = mobile ? 0.72 : 1;
+      const densityScale = Math.min(1, Math.sqrt(9 / Math.max(1, this.boats.length)));
+      const scale = (mobile ? 0.72 : 1) * densityScale;
       model.group.scale.setScalar(
         T.MathUtils.lerp(boat.releaseScale ?? scale, scale, releaseProgress),
       );

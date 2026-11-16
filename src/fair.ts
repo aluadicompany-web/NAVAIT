@@ -2,20 +2,20 @@ import type { Krathong } from './state';
 import { defaultAvatar } from './profile';
 import { photoUrl } from './online';
 import { drawBlessing } from './blessings';
-import { BalloonRound, FAIR_STOPS, FAIR_WIDTH, fairCamera, nearbyStop, walkFair } from './fair-state';
-import { box, buildFairArt, ellipse, glow, line, text, wheel } from './fair-art';
+import { BalloonRound, FAIR_STOPS, fairCamera, nearbyStop, walkFair } from './fair-state';
+import { FairWorld } from './render/fair-world';
 export class Fair {
     private root = document.createElement('section');
     private canvas = document.createElement('canvas');
-    private c: CanvasRenderingContext2D;
-    private art = buildFairArt();
-    private image = new Image();
+    private world: FairWorld;
+    private contextLost = false;
+    private contextStatus = document.createElement("p");
+    private lastDraw = 0;
     private keys = new Set<string>();
     private x = 180;
     private target: number | null = null;
     private camera = 0;
     private scale = 1;
-    private offset = 0;
     private width = 0;
     private height = 0;
     private last = 0;
@@ -31,14 +31,20 @@ export class Fair {
     constructor(private item: Krathong, photo: string | undefined, private onExit: () => void) {
         this.root.className = 'fair-room';
         this.root.setAttribute('aria-label', 'โซนงานวัด');
-        this.root.innerHTML = `<div class="fair-top"><button id="leave-fair" type="button">← กลับท่าน้ำ</button><div><span>TEMPLE FAIR · คืนแห่งความสุข</span><h1>เดินเล่นงานวัด</h1></div><span class="fair-badge">2D WORLD</span></div><div class="fair-bottom"><div class="fair-directions"><button type="button" data-walk="-1" aria-label="เดินซ้าย">←</button><button type="button" data-walk="1" aria-label="เดินขวา">→</button></div><button type="button" id="fair-interact" hidden>แวะร้าน</button><p>เดินด้วย ← → หรือ A D · แตะทางเพื่อเดิน · E แวะร้าน</p></div><div class="fair-map" aria-label="แผนที่งานวัด"></div><dialog class="fair-dialog"><button type="button" class="fair-close" aria-label="ปิดหน้าร้าน">×</button><h2></h2><p class="fair-detail"></p><div class="fair-activity"></div><p class="fair-result" role="status"></p></dialog>`;
-        this.canvas.setAttribute('aria-label', 'ทางเดินงานวัดสองมิติ แตะทางเพื่อเดินไปยังร้าน');
+        this.root.innerHTML = `<div class="fair-top"><button id="leave-fair" type="button">← กลับท่าน้ำ</button><div><span>TEMPLE FAIR · คืนแห่งความสุข</span><h1>เดินเล่นงานวัด</h1></div><span class="fair-badge">3D WORLD</span></div><div class="fair-bottom"><div class="fair-directions"><button type="button" data-walk="-1" aria-label="เดินซ้าย">←</button><button type="button" data-walk="1" aria-label="เดินขวา">→</button></div><button type="button" id="fair-interact" hidden>แวะร้าน</button><p>เดินด้วย ← → หรือ A D · แตะทางเพื่อเดิน · E แวะร้าน</p></div><div class="fair-map" aria-label="แผนที่งานวัด"></div><dialog class="fair-dialog"><button type="button" class="fair-close" aria-label="ปิดหน้าร้าน">×</button><h2></h2><p class="fair-detail"></p><div class="fair-activity"></div><p class="fair-result" role="status"></p></dialog>`;
+        this.canvas.setAttribute('aria-label', 'ทางเดินงานวัดสามมิติ แตะทางเพื่อเดินไปยังร้าน');
         this.root.prepend(this.canvas);
-        this.c = this.canvas.getContext('2d')!;
+        this.contextStatus.className = 'fair-context-status';
+        this.contextStatus.setAttribute('role', 'status');
+        this.contextStatus.hidden = true;
+        this.root.append(this.contextStatus);
+        this.world = new FairWorld(this.canvas, item.name, photo || photoUrl(item) || defaultAvatar(item.name), lost => {
+            this.contextLost = lost; this.clear();
+            this.contextStatus.hidden = !lost;
+            this.contextStatus.textContent = lost ? 'ภาพ 3D หยุดชั่วคราว กำลังรอการเชื่อมต่อกราฟิกกลับมา…' : '';
+        });
         this.dialog = this.root.querySelector('dialog')!;
         this.interact = this.root.querySelector('#fair-interact')!;
-        this.image.onerror = () => { this.image.onerror = null; this.image.src = defaultAvatar(item.name); };
-        this.image.src = photo || photoUrl(item) || defaultAvatar(item.name);
         const map = this.root.querySelector('.fair-map')!;
         FAIR_STOPS.forEach((stop, i) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = stop.name; b.onclick = () => { if (this.riding)
             return; this.target = stop.x; }; b.dataset.stop = String(i); map.append(b); });
@@ -61,7 +67,7 @@ export class Fair {
             button.onlostpointercapture = up;
         }
         this.canvas.onpointerdown = e => { if (this.riding || this.dialog.open)
-            return; this.target = Math.max(100, Math.min(FAIR_WIDTH - 100, e.offsetX / this.scale + this.camera)); };
+            return; this.target = this.world.targetAt(e.clientX, e.clientY); };
         document.body.append(this.root);
         document.body.classList.add('fair-open');
         this.resize();
@@ -100,22 +106,17 @@ export class Fair {
     private resize = () => {
         this.width = innerWidth;
         this.height = innerHeight;
-        const dpr = Math.min(devicePixelRatio, 1.5);
-        this.canvas.width = this.width * dpr;
-        this.canvas.height = this.height * dpr;
-        this.canvas.style.width = `${this.width}px`;
-        this.canvas.style.height = `${this.height}px`;
-        this.scale = Math.min(this.height / 800, this.width / 640);
-        this.offset = this.height - 800 * this.scale - (this.width < 700 ? 105 : 0);
+        this.world.resize(this.width, this.height);
+        this.scale = this.height / (this.width < 700 ? 2100 : 1580);
     };
     private frame = (now: number) => {
         if (this.closed)
             return;
-        const dt = this.last ? Math.min((now - this.last) / 1000, .05) : 0;
+        const dt = this.last ? Math.min((now - this.last) / 1000, .2) : 0;
         this.last = now;
-        this.time += dt;
+        if (!this.contextLost) this.time += dt;
         let direction = 0;
-        if (!this.riding && !this.dialog.open) {
+        if (!this.riding && !this.dialog.open && !this.contextLost) {
             direction = Number(this.keys.has('arrowright') || this.keys.has('d') || this.keys.has('ArrowRight')) - Number(this.keys.has('arrowleft') || this.keys.has('a') || this.keys.has('ArrowLeft'));
             if (!direction && this.target !== null) {
                 const distance = this.target - this.x;
@@ -124,7 +125,14 @@ export class Fair {
                 else
                     direction = Math.sign(distance);
             }
-            this.x = walkFair(this.x, direction, dt);
+            // Integrate elapsed time in bounded steps even on slower software GPUs.
+            for (let remaining = dt; remaining > 0; remaining -= .05) {
+                const next = walkFair(this.x, direction, Math.min(.05, remaining));
+                if (this.target !== null && (this.target - this.x) * (this.target - next) <= 0) {
+                    this.x = this.target; this.target = null; break;
+                }
+                this.x = next;
+            }
             if (direction)
                 this.step += dt * 10;
         }
@@ -144,132 +152,13 @@ export class Fair {
         this.root.dataset.playerX = this.x.toFixed(1);
         this.root.dataset.cameraX = this.camera.toFixed(1);
         this.root.dataset.riding = String(this.riding);
-        this.draw(direction !== 0);
+        if (now - this.lastDraw >= 33) {
+            const renderDt = this.lastDraw ? Math.min((now - this.lastDraw) / 1000, .2) : 1;
+            this.lastDraw = now;
+            this.world.update(this.x, this.time, this.step, direction !== 0, this.riding, this.reduced.matches, renderDt);
+        }
         this.raf = requestAnimationFrame(this.frame);
     };
-    private draw(moving: boolean) {
-        const c = this.c, dpr = Math.min(devicePixelRatio, 1.5);
-        c.setTransform(dpr, 0, 0, dpr, 0, 0);
-        const sky = c.createLinearGradient(0, 0, 0, this.height);
-        sky.addColorStop(0, '#182b43');
-        sky.addColorStop(.65, '#486064');
-        sky.addColorStop(1, '#6e7170');
-        c.fillStyle = sky;
-        c.fillRect(0, 0, this.width, this.height);
-        c.save();
-        c.translate(0, this.offset);
-        c.scale(this.scale, this.scale);
-        const visible = this.width / this.scale, t = this.reduced.matches ? 0 : this.time;
-        for (let i = 0; i < 55; i++) {
-            const sx = ((i * 173.3 - this.camera * .12) % (visible + 80) + visible + 80) % (visible + 80);
-            ellipse(c, sx, 50 + (i * 37) % 305, 1.2, 1.2, '#fae7be90');
-        }
-        const moonX = visible * .77 - this.camera * .025;
-        glow(c, moonX, 153, 106, '250,219,155', .17);
-        ellipse(c, moonX, 153, 35, 35, '#ffe6b6');
-        // Distant wooded hills and a temple silhouette scroll more slowly than shops.
-        for (let i = -1; i < 12; i++) {
-            const hx = i * 410 - this.camera * .25;
-            ellipse(c, hx, 558, 310, 185, '#263e4b');
-            ellipse(c, hx + 110, 585, 190, 180, '#28494b');
-        }
-        const tx = 380 - this.camera * .38;
-        box(c, tx, 410, 180, 169, '#32474b');
-        for (let i = 0; i < 3; i++) {
-            c.fillStyle = ['#6e615c', '#8d7464', '#a28c70'][i];
-            c.beginPath();
-            c.moveTo(tx - 35 + i * 12, 426 - i * 19);
-            c.quadraticCurveTo(tx + 85, 404 - i * 27, tx + 90, 338 - i * 13);
-            c.quadraticCurveTo(tx + 100, 404 - i * 27, tx + 215 - i * 12, 426 - i * 19);
-            c.fill();
-        }
-        for (let i = 0; i < 4; i++)
-            box(c, tx + 20 + i * 39, 451, 16, 52, '#d8ba8044', 7);
-        for (let i = 0; i < 10; i++) {
-            const lx = ((i * 419 - this.camera * .3 + 3800) % 3800), ly = 360 - ((t * 9 + i * 47) % 310);
-            glow(c, lx, ly, 30, '255,197,114', .13);
-            box(c, lx - 6, ly - 10, 12, 19, '#e9c48b', 4);
-        }
-        c.translate(-this.camera, 0);
-        c.drawImage(this.art, 0, 0);
-        box(c, 0, 800, FAIR_WIDTH, Math.max(0, (this.height - this.offset) / this.scale - 800), '#5b555b');
-        // Festoon cables and breathing bulbs.
-        for (let x = 0; x < FAIR_WIDTH; x += 260) {
-            c.strokeStyle = '#c1a28a';
-            c.lineWidth = 2;
-            c.beginPath();
-            c.moveTo(x, 243);
-            c.quadraticCurveTo(x + 130, 308, x + 260, 243);
-            c.stroke();
-            for (let j = 0; j < 6; j++) {
-                const bx = x + j * 43, by = 243 + Math.sin(j / 6 * Math.PI) * 30;
-                line(c, [bx, by, bx, by + 12], '#bca18c', 1);
-                glow(c, bx, by + 18, 33, '255,203,125', .16 + Math.sin(t * 1.3 + x + j) * .035);
-                ellipse(c, bx, by + 18, 4, 6, j % 3 ? '#ffe2a2' : '#edb1b0');
-            }
-        }
-        wheel(c, t, this.riding, (x, y) => this.avatar(x, y, false, .65));
-        // A few ambient festival visitors; these are scenery, not live players.
-        for (const [i, x] of [790, 1310, 1770, 2635, 3100, 3620].entries()) {
-            const nx = x + Math.sin(t * .25 + i) * 30;
-            this.visitor(nx, 650, ['#a2b6bb', '#d8b29d', '#bfa7c7'][i % 3], t + i);
-        }
-        if (!this.riding)
-            this.avatar(this.x, 690, moving, 1);
-        if (this.target !== null && !this.riding) {
-            ellipse(c, this.target, 695, 17, 5, '#ffe3ab66');
-            text(c, '⌄', this.target, 682, 22);
-        }
-        // Foreground gives the street a distinct side-view stage.
-        for (let x = 45; x < FAIR_WIDTH; x += 510) {
-            ellipse(c, x, 795, 67, 25, '#2d4448');
-            for (let j = 0; j < 5; j++)
-                ellipse(c, x + (j - 2) * 21, 785 - j % 2 * 9, 23, 29, '#3e5a53');
-        }
-        c.restore();
-    }
-    private visitor(x: number, y: number, color: string, t: number) {
-        const c = this.c;
-        ellipse(c, x, y + 1, 20, 5, '#23344055');
-        line(c, [x - 6, y - 21, x - 9, y - 1], '#3a3c52', 8);
-        line(c, [x + 6, y - 21, x + 9, y - 1], '#3a3c52', 8);
-        box(c, x - 16, y - 52, 32, 35, color, 12);
-        ellipse(c, x, y - 65 + Math.sin(t) * 1, 17, 19, '#dfbda4');
-        ellipse(c, x, y - 77, 17, 9, '#514352');
-        ellipse(c, x - 5, y - 64, 1.5, 2, '#423e4b');
-        ellipse(c, x + 5, y - 64, 1.5, 2, '#423e4b');
-    }
-    private avatar(x: number, y: number, moving: boolean, scale: number) {
-        const c = this.c;
-        c.save();
-        c.translate(x, y);
-        c.scale(scale, scale);
-        const stride = moving && !this.reduced.matches ? Math.sin(this.step) * 10 : 0, bob = moving && !this.reduced.matches ? Math.abs(Math.sin(this.step)) * 3 : 0;
-        ellipse(c, 0, 2, 28, 7, '#25313c55');
-        line(c, [-9, -25, -10 + stride, 0], '#3d4057', 12);
-        line(c, [9, -25, 10 - stride, 0], '#3d4057', 12);
-        box(c, -20 + stride, -5, 21, 9, '#f0d9bd', 4);
-        box(c, 0 - stride, -5, 21, 9, '#f0d9bd', 4);
-        c.translate(0, -bob);
-        const hue = (this.item.name.split('').reduce((n, s) => n + s.charCodeAt(0), 0) * 29) % 360;
-        box(c, -24, -65, 48, 47, `hsl(${hue} 35% 67%)`, 17);
-        line(c, [-22, -53, -31 - stride * .4, -28], '#eac5a8', 9);
-        line(c, [22, -53, 31 + stride * .4, -28], '#eac5a8', 9);
-        box(c, -20, -29, 40, 6, '#ffffff20', 3);
-        ellipse(c, 0, -89, 32, 32, '#f8e7c8');
-        c.save();
-        c.beginPath();
-        c.arc(0, -89, 28, 0, Math.PI * 2);
-        c.clip();
-        if (this.image.complete && this.image.naturalWidth)
-            c.drawImage(this.image, -28, -117, 56, 56);
-        c.restore();
-        c.font = '600 16px sans-serif';
-        const width = Math.min(260, c.measureText(this.item.name).width + 24);
-        box(c, -width / 2, -157, width, 27, '#233947df', 13);
-        text(c, this.item.name, 0, -138, 16);
-        c.restore();
-    }
     private visit() {
         const stop = FAIR_STOPS[this.near];
         if (!stop)
@@ -321,5 +210,5 @@ export class Fair {
         this.dialog.showModal();
     }
     close() { if (this.closed)
-        return; this.closed = true; cancelAnimationFrame(this.raf); window.removeEventListener('resize', this.resize); window.removeEventListener('keydown', this.keyDown); window.removeEventListener('keyup', this.keyUp); window.removeEventListener('blur', this.clear); document.removeEventListener('visibilitychange', this.visibility); this.image.onload = null; this.image.onerror = null; this.root.remove(); document.body.classList.remove('fair-open'); this.art.width = 0; this.art.height = 0; this.onExit(); }
+        return; this.closed = true; cancelAnimationFrame(this.raf); window.removeEventListener('resize', this.resize); window.removeEventListener('keydown', this.keyDown); window.removeEventListener('keyup', this.keyUp); window.removeEventListener('blur', this.clear); document.removeEventListener('visibilitychange', this.visibility); this.world.dispose(); this.root.remove(); document.body.classList.remove('fair-open');  this.onExit(); }
 }

@@ -33,3 +33,9 @@ The repository includes SQL policy tests using a local PostgreSQL-compatible tes
 The optional temple uses the existing public project URL, publishable key and anonymous session. No additional SQL is needed. Presence on the public channel `navait-temple-v1` keeps the currently connected room tabs visible and removes them after leaving or connection loss. Anonymous nickname avatars are not verified real-world identities. Public profile photos also appear on room avatars.
 
 If the room reports a connection failure, check the project's Realtime service/public-channel configuration and browser WebSocket connectivity. No service_role key should be added to the website. After a new deployment, enter from two browsers, move and sit in one, then exit and close its tab to verify the other browser updates. The repository's WebSocket tests use a mock server and cannot validate the real project's switches or quotas.
+
+## Upgrade existing projects for 12 designs
+
+Before deploying the 12-design app, run [`migrations/expand-krathong-designs.sql`](migrations/expand-krathong-designs.sql) in your project's SQL Editor. It changes only `krathongs_design_check` from IDs 0–8 to 0–11. It does not delete/update saved rows, touch Storage photos, change RLS, quotas or Realtime settings. It is transactional and repeatable. Do not run the prelaunch cleanup for this upgrade. New projects use `setup.sql` with the expanded constraint; rerunning `CREATE TABLE IF NOT EXISTS` alone will not upgrade an existing table.
+
+Validate IDs 9, 10 and 11 through the deployed UI after migration, and open an old shared link to confirm its design, wish and photo still display. Local/mocked tests do not establish that the live project's migration has been applied.

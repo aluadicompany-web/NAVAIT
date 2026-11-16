@@ -12,3 +12,21 @@ export function keepInChannel<T extends { z: number }>(point: T): T {
   point.z = Math.max(CHANNEL_START_Z, point.z);
   return point;
 }
+
+// Render-only layout: never rewrite saved coordinates, wishes or profile data.
+// Sorting by a stable ID hash makes the same collection independent of API order.
+export function spreadBoats(ids: readonly string[]) {
+  const hash = (id: string) => {
+    let value = 2166136261;
+    for (const char of id) value = Math.imul(value ^ char.charCodeAt(0), 16777619);
+    return value >>> 0;
+  };
+  const sorted = [...new Set(ids)].sort((a, b) => hash(a) - hash(b) || a.localeCompare(b));
+  const result = new Map<string, { x: number; y: number }>();
+  sorted.forEach((id, i) => {
+    // A coprime stride distributes adjacent slots across both axes.
+    const slot = (Math.floor(i * 30 / Math.max(1, sorted.length)) * 7) % 30;
+    result.set(id, { x: 0.12 + (slot % 6) * 0.152, y: 0.45 + Math.floor(slot / 6) * 0.0875 });
+  });
+  return result;
+}

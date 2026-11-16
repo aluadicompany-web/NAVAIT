@@ -53,4 +53,7 @@ export const designs = [
     color: 0xc7a3eb,
     kind: "tiered",
   },
+  { name: "กุหลาบแดง", description: "กุหลาบแดงซ้อนกลีบบนพวงใบตอง", color: 0xe56780, kind: "rose" },
+  { name: "บายศรีใบตอง", description: "ยอดบายศรีใบตองกับอุบะมะลิ", color: 0x9bc98a, kind: "baisri" },
+  { name: "บัวขาวทอง", description: "บัวขาวงาช้างล้อมกลีบสีทอง", color: 0xffe9b1, kind: "ivory" },
 ] as const;

@@ -16,15 +16,15 @@ For Render Static Site, use `npm ci && npm run build`, publish directory `dist`,
 
 ## River and crafts
 
-Choose from nine locally generated, true 3D models inspired by Thai krathong crafts: folded banana leaves, pink lotus, marigold, jasmine garland, orchid, coconut shell, flower bread, banana-leaf swan, and three-tier lotus. Model shapes and preview thumbnails use the same geometry. These are stylized procedural interpretations, not scanned models or downloaded third-party assets.
+Choose from twelve locally generated, true 3D models inspired by Thai krathong crafts: folded banana leaves, pink lotus, marigold, jasmine garland, orchid, coconut shell, flower bread, banana-leaf swan, three-tier lotus, red rose, banana-leaf baisri, and ivory-gold lotus. Model shapes and preview thumbnails use the same geometry. These are stylized procedural interpretations, not scanned models or downloaded third-party assets.
 
 The water shader animates flowing ripples and moonlight; candle flames flicker with soft glow and warm reflections. Boats bob and gently tilt while drifting rightward, eventually re-entering upstream. Simulation time advances only while the page is visible. Reduced-motion preferences freeze decorative motion. Rendering is capped at 30 fps and pixel ratio 1.5; static geometry is merged per material to reduce draw calls. Actual performance depends on device and GPU.
 
-Nine labeled example crafts appear when no player boats have been saved, then disappear when the player launches a boat. Enter a nickname and optional wish, launch, then tap or keyboard-focus the boat's name to read its wish. Up to 30 player krathongs persist in this browser. Old saved krathongs migrate to corresponding new designs without losing names or wishes.
+Twelve labeled example crafts appear when no player boats have been saved, then disappear when the player launches a boat. Enter a nickname and optional wish, launch, then tap or keyboard-focus the boat's name to read its wish. Up to 30 player krathongs persist in this browser. Old saved krathongs migrate to corresponding new designs without losing names or wishes.
 
 ## Structure
 
-- `src/catalog.ts`: nine craft definitions.
+- `src/catalog.ts`: twelve craft definitions.
 - `src/render/krathong.ts`: procedural models, batching, flame and glow.
 - `src/render/water.ts`: water geometry and shader.
 - `src/river.ts`: Three.js scene, fixed camera, resize, animation, DOM label projection and WebGL context recovery.
@@ -54,7 +54,7 @@ npm run test:browser
 
 For an existing system Chromium, run `BROWSER_EXECUTABLE=/usr/bin/chromium npm run test:browser` instead. Browser tests start their own Vite processes on ports 5180 and 5181, use synthetic images and a mocked Supabase service, and save screenshots under `/tmp/navait-profile-qa`. No real project key is needed. Database tests run the SQL twice in PGlite and verify RLS ownership, path validation, quotas, and timestamp enforcement. These tests do not replace validation against a real Supabase project after setup.
 
-For the 3D scene, check all nine previews, rightward drift, water and candle animation, desktop/mobile layout and reduced motion. Actual mobile performance still needs a physical-device check.
+For the 3D scene, check all twelve previews, rightward drift, water and candle animation, desktop/mobile layout and reduced motion. Actual mobile performance still needs a physical-device check.
 
 ## Atmosphere and sharing
 
@@ -126,13 +126,27 @@ Prayer cushions use rounded, slightly domed geometry with a shallow center tuft,
 
 Each browser uses a persisted shuffled deck, drawing all 20 before a new cycle and avoiding an adjacent duplicate at the cycle boundary. If storage is unavailable it falls back to an in-memory deck. This does not guarantee different messages across different players/browsers. Older saved records with an empty wish show a stable, ID-derived blessing when opened, without modifying their stored data.
 
-## Side-view temple fair
+## 3D temple fair
 
 Choose **ไปงานวัด** in the header (available before launching and after refresh), or **ไปเดินเล่นงานวัด** in the completion card, to enter a separate 3,800-unit 2D promenade. Walk with left/right arrows or A/D, hold the mobile arrow buttons, tap the street, or choose a destination in the top map. E or the nearby shop button opens an activity. Escape closes a shop, or returns to the river when outside a shop.
 
 Six stops include Thai sweets, a five-throw balloon round with reset, a food stall, an animated Ferris wheel with ride/exit, wishing stars, and drinks/cotton candy. Food stalls are scenic browsing stops; there are no purchases, payments, or inventories. The player uses their existing name/photo and a name-derived outfit color. Background visitors are decorative NPCs; this first fair scene does not synchronize players online.
 
-The scene uses a cached Canvas 2D illustration, layered parallax, capped pixel ratio, reduced-motion support, visibility pause, and a lazy module (~7 KB gzip). It reuses the current app without adding another engine dependency. The river and ambient audio pause while visiting; closing disposes the scene and restores the river. No Supabase migration or paid services are needed. Run `npm run test:fair` (optionally set `BROWSER_EXECUTABLE`) after `npm run build`; screenshots are saved under `/tmp/navait-fair-qa`.
+The fair is now a lazy Three.js scene with an oblique orthographic camera. Wood plank stages, striped fabric canopies with scalloped valances, posts, counters, serving dishes, sweets, skewers, drinks, cotton candy, balloon displays, hanging prizes, star ornaments and lantern strings are modeled in 3D. It uses the existing engine dependency. Navigation and activity rules stay in `fair-state.ts`; `render/fair-world.ts` owns geometry, camera, lighting and disposal. Labels, controls and activity dialogs remain accessible DOM elements.
+
+The Ferris wheel is the promenade landmark: double rims, spokes, A-frame supports, lit edges, a lotus-like hub, twelve upright pastel gondolas, a sign and a stair/railing platform. Riding places the existing player avatar inside a gondola. Reduced motion freezes the wheel; tab visibility pauses simulation. The scene caps rendering at 30 fps and pixel ratio 1.5, merges static surfaces and lights, uses no shadow maps or external assets, and releases geometries, textures, materials and listeners on exit. Graphics-context loss pauses movement and shows recovery status. Decorative visitors remain NPCs, not online players.
+
+Run `npm run test:fair` after `npm run build` (optionally set `BROWSER_EXECUTABLE`). Coverage includes all existing fair activities, desktop/mobile input, return/reopen, reduced motion, a draw-call budget and graphics-context recovery; screenshots are in `/tmp/navait-fair-qa`. This validates behavior with desktop software rendering, not a physical mobile frame-rate guarantee.
+
+## Twelve designs, distributed river and altar additions
+
+The original design IDs 0–8 retain their names/models. Appended IDs 9–11 are red rose, banana-leaf baisri and ivory-gold lotus. Existing local data and shared links retain their designs, wishes and profile photos. **Existing Supabase projects must run [`supabase/migrations/expand-krathong-designs.sql`](supabase/migrations/expand-krathong-designs.sql) before deploying the new designs.** The prior constraint accepts only 0–8; the migration widens it to 0–11 without changing rows, photos, policies, quotas, timestamps or Realtime. It is transactional and safe to rerun. Fresh projects use the updated `setup.sql`. A missing upgrade produces an actionable save error while leaving the form intact; the original nine still work. No live migration or data deletion is performed by this repository change.
+
+Walking to the pier now takes 3.2 + 2.5 seconds (previously 2.8 + 2.2), with the same lowering gesture and immediate reduced-motion alternative. Saved boats are distributed into separated river slots using their stable IDs, independent of API order, so a reload with identical saved coordinates does not pile boats together. This is render-only: stored coordinates and personal data are not rewritten. Collection changes can reassign slots; dense rivers render smaller boats to preserve spacing. Boats still drift right and stay clear of the landing.
+
+The temple adds one seated monk on a small asana and low flower bowls in an open ring around the Buddha's dais. They stay behind the existing walking bounds, leave the central aisle clear and join the existing material batches. They do not change player movement or Presence messages.
+
+Run `npm run test:evolution` for twelve distinct 3D previews, deterministic distribution of thirty legacy boats without stored-data changes, local saves of all three new designs, and altar clearance. Screenshots are in `/tmp/navait-evolution-qa`. The SQL suite checks upgrading the old constraint twice, preserves existing wish/photo paths, accepts all new IDs and rejects IDs outside 0–11.
 
 ### Temple connection recovery
 

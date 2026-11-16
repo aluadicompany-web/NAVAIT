@@ -243,6 +243,47 @@ export class TempleInterior {
       this.group.add(flame);
       this.flameMeshes.push(flame);
     }
+    // A seated monk on an asana, entirely behind ROOM.minZ (-3.2).
+    const mx = 1.8, mz = -4.25;
+    block(0x9f5650, mx, 0.07, mz, 1.25, 0.14, 0.95);
+    block(0xd1a56b, mx, 0.15, mz, 1.05, 0.09, 0.8);
+    const robe = 0xc77b32, fold = 0xa95b28, skin = 0xdcb38e;
+    part(sphere, robe, mx - 0.24, 0.39, mz + 0.08, 0.42, 0.19, 0.31);
+    part(sphere, robe, mx + 0.24, 0.39, mz + 0.08, 0.42, 0.19, 0.31);
+    part(sphere, robe, mx, 0.78, mz - 0.07, 0.35, 0.51, 0.25);
+    part(sphere, fold, mx + 0.12, 0.78, mz + 0.13, 0.16, 0.43, 0.06, 0, 0, -0.22);
+    part(cylinder, skin, mx, 1.2, mz, 0.12, 0.16, 0.12);
+    part(sphere, skin, mx, 1.46, mz, 0.27, 0.33, 0.25);
+    for (const side of [-1, 1]) {
+      part(sphere, skin, mx + side * 0.27, 1.44, mz, 0.06, 0.1, 0.06);
+      part(sphere, 0x634b3f, mx + side * 0.09, 1.48, mz + 0.238, 0.055, 0.013, 0.014);
+      part(sphere, robe, mx + side * 0.3, 0.8, mz, 0.105, 0.35, 0.11, 0, 0, side * 0.25);
+      part(sphere, skin, mx + side * 0.13, 0.53, mz + 0.27, 0.19, 0.065, 0.1);
+    }
+    part(sphere, skin, mx, 1.42, mz + 0.26, 0.04, 0.07, 0.045);
+    part(sphere, 0x9d7259, mx, 1.33, mz + 0.23, 0.06, 0.01, 0.012);
+    // Low flower bowls form an open ring around the lotus dais, clear of the aisle.
+    let flowerBowls = 0;
+    for (let i = 0; i < 16; i++) {
+      const a = i * Math.PI * 2 / 16;
+      const x = Math.cos(a) * 2.22, z = -6.5 + Math.sin(a) * 1.65;
+      if (z > -5.25 && Math.abs(x) < 1.3) continue;
+      flowerBowls++;
+      part(cylinder, 0xe4bf78, x, 0.15, z, 0.25, 0.22, 0.25);
+      for (let j = 0; j < 7; j++) {
+        const b = j * Math.PI * 2 / 7;
+        const fx = x + Math.cos(b) * 0.2, fz = z + Math.sin(b) * 0.2;
+        part(sphere, 0x53825a, fx, 0.27, fz, 0.13, 0.07, 0.12);
+        for (let k = 0; k < 5; k++) {
+          const c = k * Math.PI * 2 / 5;
+          part(sphere, j % 2 ? 0xffedc7 : 0xe1a18f,
+            fx + Math.cos(c) * 0.055, 0.35 + (j % 2) * 0.04, fz + Math.sin(c) * 0.055,
+            0.055, 0.045, 0.055);
+        }
+        part(sphere, 0xe9bb51, fx, 0.39 + (j % 2) * 0.04, fz, 0.035, 0.03, 0.035);
+      }
+    }
+    this.group.userData.altarDecor = { monks: 1, flowerBowls, frontZ: -3.75 };
     raw.updateMatrixWorld(true);
     const batches = new Map<TempleSurface, T.BufferGeometry[]>();
     raw.traverse((obj) => {

@@ -1,5 +1,5 @@
 import * as T from "three";
-import { ceremonyPose, type EntrySide } from "../ceremony";
+import { ceremonyPose, RELEASE_AT, type EntrySide } from "../ceremony";
 import { createKrathong, disposeModel, type Model } from "./krathong";
 import { defaultAvatar } from "../profile";
 import type { Krathong } from "../state";
@@ -128,7 +128,7 @@ export class CeremonyAvatar {
     if (this.disposed || !this.held) return;
     if (reduced && !this.reduced && this.elapsed > 0)
       this.elapsed = this.released ? 0.2 : 0;
-    if (this.reduced && !reduced) this.elapsed = this.released ? 7.3 : 0;
+    if (this.reduced && !reduced) this.elapsed = this.released ? RELEASE_AT : 0;
     this.reduced = reduced;
     this.elapsed += delta;
     const p = ceremonyPose(this.elapsed, this.side, reduced);

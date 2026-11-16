@@ -54,3 +54,17 @@ test("legacy, new and focused boats clear the complete landing across viewports 
   }
   assert.equal(LAUNCH_SITE.z, CHANNEL_START_Z);
 });
+
+test('reload layout separates 30 identical saved coordinates without mutating data', async () => {
+  const { spreadBoats } = await import('../src/navigation.ts');
+  const items = Array.from({length:30},(_,i)=>({id:`legacy-${i}`,x:.65,y:.66,wish:`wish-${i}`}));
+  const before=structuredClone(items), first=spreadBoats(items.map(i=>i.id));
+  const reloaded=spreadBoats([...items].reverse().map(i=>i.id));
+  assert.equal(first.size,30);
+  assert.deepEqual([...first], [...reloaded]);
+  assert.deepEqual(items,before);
+  assert.equal(new Set([...first.values()].map(p=>`${p.x},${p.y}`)).size,30);
+  assert.ok(Math.max(...[...first.values()].map(p=>p.x))-Math.min(...[...first.values()].map(p=>p.x))>.7);
+  for(const p of first.values()) { assert.ok(p.x>=.05&&p.x<=.95);assert.ok(p.y>=.45&&p.y<=.8); }
+  assert.equal(spreadBoats([]).size,0);
+});

@@ -1300,7 +1300,7 @@ header {
   .brand-icon { width: 32px; height: 32px; }
 }
 
-/* The fair is a separate, disposable 2D scene. */
+/* The fair is a separate, disposable 3D scene. */
 .fair-open { overflow: hidden; }
 .fair-room { position: fixed; inset: 0; z-index: 40; background: #182b43; color: #fff0d4; }
 .fair-room canvas { display: block; touch-action: none; }
@@ -1358,3 +1358,10 @@ header {
 #temple-presence { max-width: min(520px, 60vw); line-height: 1.6; overflow-wrap: anywhere; }
 #temple-reconnect { pointer-events: auto; font-size: 11px; padding: 5px 10px; margin-top: 4px; }
 #temple-reconnect[hidden] { display: none; }
+
+.fair-context-status {
+  position: absolute; top: 45%; left: 10%; right: 10%; z-index: 5;
+  padding: 18px; text-align: center; color: #ffe5b4; background: #263d4dee;
+  border: 1px solid #e9ca8b88; border-radius: 18px;
+}
+.fair-context-status[hidden] { display: none; }

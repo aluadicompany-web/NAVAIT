@@ -112,6 +112,8 @@ export function onlineError(error: unknown) {
     error instanceof Error
       ? error.message
       : String((error as { message?: string })?.message || "");
+  if (/krathongs_design_check/i.test(message))
+    return "กระทงแบบใหม่ยังบันทึกออนไลน์ไม่ได้ กรุณาให้ผู้ดูแลอัปเดตฐานข้อมูลสำหรับ 12 แบบ หรือเลือก 9 แบบเดิมก่อน";
   if (/anonymous|signups/i.test(message))
     return "เข้าเล่นออนไลน์ไม่ได้ กรุณาให้ผู้ดูแลเปิด Anonymous Sign-ins ใน Supabase";
   if (/daily limit/i.test(message))
