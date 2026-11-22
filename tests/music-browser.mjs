@@ -2,123 +2,87 @@ import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','5192','--strictPort'],{stdio:'pipe',env:{...process.env,VITE_SUPABASE_URL:'',VITE_SUPABASE_PUBLISHABLE_KEY:''}});
-let browser;
-const mockAPI=`
-window.__musicPlayers=[];
-window.YT={Player:class {
- constructor(el,options){
-  this.options=options;this.log=[];this.destroyed=false;this.frame=document.createElement('iframe');
-  this.frame.src='https://www.youtube-nocookie.com/embed/'+options.videoId;
-  this.frame.width=String(options.width);this.frame.height=String(options.height);el.replaceWith(this.frame);
-  window.__musicPlayers.push(this);
-  this.listener=e=>{if(e.source!==this.frame.contentWindow)return;if(e.data==='mock-play'){window.__musicMode='normal';this.playVideo();}if(e.data==='mock-pause')this.pauseVideo();};
-  window.addEventListener('message',this.listener);
-  setTimeout(()=>{if(!this.destroyed){options.events.onReady({target:this});if(window.__musicMode==='error')options.events.onError({target:this,data:101});}},50);
- }
- getIframe(){return this.frame;}
- setVolume(n){this.volume=n;}
- playVideo(){this.log.push('play');this.attempts=(this.attempts||0)+1;if(window.__musicMode==='blocked'&&this.attempts===1){this.options.events.onAutoplayBlocked({target:this});return;}this.options.events.onStateChange({target:this,data:1});}
- pauseVideo(){this.log.push('pause');this.options.events.onStateChange({target:this,data:2});}
- destroy(){this.log.push('destroy');this.destroyed=true;this.frame.remove();window.removeEventListener('message',this.listener);}
-}};
-window.onYouTubeIframeAPIReady?.();
-`;
+const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','5192','--strictPort'],{stdio:'pipe'});
+let browser, strictBrowser;
+const ready = page => page.waitForFunction(()=>document.querySelector('#music-toggle').dataset.state==='playing' && !document.querySelector('#river-music').paused && document.querySelector('#river-music').currentTime>0,{},{timeout:20000});
+const visibility = (page,hidden)=>page.evaluate(hidden=>{if(hidden)Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});else delete document.hidden;document.dispatchEvent(new Event('visibilitychange'));},hidden);
 try {
-  for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:5192')).ok)break;}catch{}if(server.exitCode!==null)throw Error('Vite startup failed');await new Promise(r=>setTimeout(r,100));}
+  for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:5192')).ok)break;}catch{}if(server.exitCode!==null)throw Error('Preview startup failed');await new Promise(r=>setTimeout(r,100));}
   await mkdir('/tmp/navait-music-qa',{recursive:true});
-  browser=await chromium.launch({executablePath:process.env.BROWSER_EXECUTABLE||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--enable-unsafe-swiftshader']});
+  const launch={executablePath:process.env.BROWSER_EXECUTABLE||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--enable-unsafe-swiftshader','--autoplay-policy=no-user-gesture-required']};
+  browser=await chromium.launch(launch);
   const context=await browser.newContext({viewport:{width:1440,height:900},reducedMotion:'reduce'});
-  let requests=0;
-  await context.route('https://www.youtube.com/iframe_api',route=>{requests++;return route.fulfill({contentType:'text/javascript',body:mockAPI});});
-  await context.route('https://www.youtube-nocookie.com/embed/*',route=>route.fulfill({contentType:'text/html; charset=utf-8',body:'<!doctype html><meta charset="utf-8"><html lang="th"><body style="margin:0;background:#122e39;color:#ffedc5;font:14px sans-serif;display:grid;place-content:center;height:100vh;text-align:center"><p>YouTube · ตัวเล่นจำลองสำหรับ QA</p><button onclick="parent.postMessage(\'mock-play\',\'*\')">เล่น</button><button onclick="parent.postMessage(\'mock-pause\',\'*\')">พัก</button></body></html>'}));
-  const page=await context.newPage(), errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const page=await context.newPage(), errors=[], external=[];let mediaRequests=0;
+  page.on('pageerror',e=>errors.push(e.message));
+  page.on('request',request=>{const url=new URL(request.url());if(url.protocol.startsWith('http')&&url.hostname!=='127.0.0.1')external.push(url.hostname);if(url.pathname.endsWith('.mp3'))mediaRequests++;});
   await page.goto('http://127.0.0.1:5192');
-  await page.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='playing');
-  assert.equal(requests,1);
-  const options=await page.evaluate(()=>{const p=window.__musicPlayers[0];return {videoId:p.options.videoId,vars:p.options.playerVars,volume:p.volume};});
-  assert.equal(await page.locator('#music-toggle').getAttribute('aria-label'),'ปิดเพลงประกอบ');
-  assert.equal(options.videoId,'95s3Y8nVMV4');assert.equal(options.vars.autoplay,0);assert.equal(options.vars.loop,1);assert.equal(options.vars.playlist,'95s3Y8nVMV4');assert.equal(options.volume,25);
-  const frame=page.locator('#music-panel iframe');
-  const bounds=await frame.boundingBox();assert.ok(bounds.width>=200&&bounds.height>=200);
-  await page.waitForFunction(()=>{
-    const panel=document.querySelector('#music-panel').getBoundingClientRect();
-    return [...document.querySelectorAll('.boat-label')].every(label=>{
-      const box=label.getBoundingClientRect();
-      return box.right<=panel.left || box.left>=panel.right || box.bottom<=panel.top || box.top>=panel.bottom;
-    });
+  await ready(page);
+  const media=await page.locator('#river-music').evaluate(a=>({src:a.currentSrc,volume:a.volume,loop:a.loop,controls:a.controls,duration:a.duration}));
+  assert.equal(media.volume,.25);assert.equal(media.loop,true);assert.equal(media.controls,false);assert.ok(Math.abs(media.duration-390.58)<1);
+  assert.equal(new URL(media.src).origin,'http://127.0.0.1:5192');assert.ok(new URL(media.src).pathname.endsWith('.mp3'));
+  assert.equal(await page.locator('iframe,#music-panel').count(),0);assert.equal(await page.locator('#music-status').isVisible(),false);
+  const range=await fetch(media.src,{headers:{Range:'bytes=0-1023'}});
+  assert.equal(range.status,206);assert.match(range.headers.get('content-type'),/audio\/mpeg/);assert.equal((await range.arrayBuffer()).byteLength,1024);
+  // Measure decoded audio from the actual shipped MP3, not a mock player or test tone.
+  await page.evaluate(async()=>{
+    const a=document.querySelector('#river-music');a.currentTime=30;
+    const ctx=new AudioContext();await ctx.resume();
+    const source=ctx.createMediaElementSource(a), analyser=ctx.createAnalyser();
+    source.connect(analyser);analyser.connect(ctx.destination);window.__musicAnalyser=analyser;window.__musicContext=ctx;
   });
-  await page.screenshot({path:'/tmp/navait-music-qa/desktop.png'});
-  const visibility=hidden=>page.evaluate(hidden=>{if(hidden)Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});else delete document.hidden;document.dispatchEvent(new Event('visibilitychange'));},hidden);
-  await visibility(true);await page.waitForFunction(()=>document.querySelector('#music-toggle').getAttribute('aria-pressed')==='false');
-  await visibility(false);await page.waitForFunction(()=>document.querySelector('#music-toggle').getAttribute('aria-pressed')==='true');
-  await page.frameLocator('#music-panel iframe').getByRole('button',{name:'พัก',exact:true}).click();
-  await page.waitForFunction(()=>document.querySelector('#music-toggle').getAttribute('aria-pressed')==='false');
-  const plays=await page.evaluate(()=>window.__musicPlayers[0].log.filter(x=>x==='play').length);
-  await visibility(true);await visibility(false);
-  assert.equal(await page.evaluate(()=>window.__musicPlayers[0].log.filter(x=>x==='play').length),plays,'manual pause must survive a tab switch');
-  await page.frameLocator('#music-panel iframe').getByRole('button',{name:'เล่น',exact:true}).click();
-  await page.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='playing');
-  await page.locator('#open-fair').click();await page.locator('.fair-room').waitFor();
-  assert.equal(await page.locator('#music-toggle').getAttribute('aria-pressed'),'false');
-  await page.locator('#leave-fair').click();await page.waitForFunction(()=>document.querySelector('#music-toggle').getAttribute('aria-pressed')==='true');
-  await page.locator('#name').fill('ฟังเพลงริมแม่น้ำ');await page.locator('#launch-form button[type=submit]').click();await page.locator('#after').waitFor({state:'visible',timeout:45000});
-  await page.locator('#enter-temple').click();await page.locator('.temple-room').waitFor();
-  assert.equal(await page.locator('#music-toggle').getAttribute('aria-pressed'),'false');
-  await page.locator('#leave-temple').click();await page.waitForFunction(()=>document.querySelector('#music-toggle').getAttribute('aria-pressed')==='true');
-  await page.setViewportSize({width:390,height:844});
-  await page.screenshot({path:'/tmp/navait-music-qa/mobile.png'});
+  await page.waitForFunction(()=>{const samples=new Float32Array(1024);window.__musicAnalyser.getFloatTimeDomainData(samples);return samples.some(v=>Math.abs(v)>.001);},null,{timeout:15000});
+  await page.screenshot({path:'/tmp/navait-music-qa/local-mp3-desktop.png'});
+  await visibility(page,true);await page.waitForFunction(()=>document.querySelector('#river-music').paused);
+  const pausedAt=await page.locator('#river-music').evaluate(a=>a.currentTime);await page.waitForTimeout(300);
+  assert.ok(Math.abs(await page.locator('#river-music').evaluate(a=>a.currentTime)-pausedAt)<.08);
+  await visibility(page,false);await ready(page);
+  await page.locator('#music-toggle').click();assert.equal(await page.locator('#river-music').evaluate(a=>a.paused),true);
+  const beforeReload=mediaRequests;await page.reload();
+  assert.equal(await page.locator('#river-music').getAttribute('src'),null);assert.equal(mediaRequests,beforeReload,'saved mute must prevent media fetches');
+  await page.locator('#name').click();await page.keyboard.type('เงียบ');assert.equal(await page.locator('#river-music').getAttribute('src'),null);
+  await page.locator('#music-toggle').click();await ready(page);
+  await page.locator('#open-fair').click();await page.locator('.fair-room').waitFor();assert.equal(await page.locator('#river-music').evaluate(a=>a.paused),true);
+  await page.locator('#leave-fair').click();await ready(page);
+  await page.locator('#name').fill('เพลงริมแม่น้ำ');await page.locator('#launch-form button[type=submit]').click();await page.locator('#after').waitFor({state:'visible',timeout:45000});
+  await page.locator('#enter-temple').click();await page.locator('.temple-room').waitFor();assert.equal(await page.locator('#river-music').evaluate(a=>a.paused),true);
+  await page.locator('#leave-temple').click();await ready(page);
   for(const width of [320,390]){
     await page.setViewportSize({width,height:844});
-    const boxes=await page.locator('#music-toggle,#open-fair,#sound-toggle,#about,#music-panel iframe').evaluateAll(els=>els.map(el=>{const b=el.getBoundingClientRect();return {left:b.left,right:b.right,width:b.width,height:b.height};}));
-    for(const box of boxes)assert.ok(box.left>=-1&&box.right<=width+1,`control overflows ${width}px: ${JSON.stringify(box)}`);
-    assert.ok(boxes.at(-1).width>=200&&boxes.at(-1).height>=200);
+    const boxes=await page.locator('#music-toggle,#sound-toggle,#open-fair,#about').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right};}));
+    for(const b of boxes)assert.ok(b.left>=-1&&b.right<=width+1,`header overflows ${width}px`);
   }
-  await page.locator('.music-close').click();assert.equal(await page.locator('#music-panel').isVisible(),false);assert.equal(await page.locator('#music-panel iframe').count(),0);
-  await page.evaluate(()=>window.__musicMode='blocked');await page.locator('#music-toggle').click();
-  await page.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='blocked');
-  assert.match(await page.locator('.music-status').textContent(),/แตะหรือคลิกที่หน้าเว็บ/);
-  await page.locator('#again').click();await page.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='playing');
-  await page.locator('.music-close').click();
-  const beforeReload=requests;
-  await page.reload();
-  assert.equal(await page.locator('#music-panel').isVisible(),false);
-  assert.equal(requests,beforeReload,'saved mute must prevent automatic player loading');
-  await page.locator('#name').click();await page.keyboard.type('เงียบ');
-  assert.equal(await page.locator('#music-panel iframe').count(),0,'ordinary interactions must not undo mute');
-  await page.evaluate(()=>window.__musicMode='error');await page.locator('#music-toggle').click();
-  await page.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='error');assert.match(await page.locator('.music-status').textContent(),/ไม่อนุญาต/);
-  assert.equal(await page.locator('.music-footer a').getAttribute('href'),'https://www.youtube.com/watch?v=95s3Y8nVMV4');
-  await page.evaluate(()=>window.__musicMode='normal');await page.locator('.music-retry').click();await page.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='playing');
-  await page.evaluate(()=>dispatchEvent(new Event('pagehide')));assert.equal(await page.locator('#music-panel iframe').count(),0);
-  assert.deepEqual(errors,[]);
-  // Closing during API loading must not start music after the async response arrives.
-  const race=await browser.newContext({viewport:{width:1440,height:900},reducedMotion:'reduce'});
-  let releaseAPI;const apiGate=new Promise(resolve=>{releaseAPI=resolve;});
-  await race.route('https://www.youtube.com/iframe_api',async route=>{await apiGate;await route.fulfill({contentType:'text/javascript',body:mockAPI});});
-  const racePage=await race.newPage();await racePage.goto('http://127.0.0.1:5192',{waitUntil:'domcontentloaded'});
-  await racePage.locator('.music-close').click();releaseAPI();await racePage.waitForFunction(()=>Array.isArray(window.__musicPlayers));
-  assert.equal(await racePage.locator('#music-panel iframe').count(),0);assert.equal(await racePage.evaluate(()=>window.__musicPlayers.length),0);await race.close();
-  const blocked=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'reduce'});
-  await blocked.addInitScript(()=>{window.__musicMode='blocked';});
-  await blocked.route('https://www.youtube.com/iframe_api',route=>route.fulfill({contentType:'text/javascript',body:mockAPI}));
-  await blocked.route('https://www.youtube-nocookie.com/embed/*',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><p>YouTube test player</p>'}));
-  const blockedPage=await blocked.newPage();await blockedPage.goto('http://127.0.0.1:5192');
-  await blockedPage.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='blocked');
-  // Synthetic events do not count as user activation.
-  await blockedPage.evaluate(()=>document.dispatchEvent(new MouseEvent('click',{bubbles:true})));
-  assert.equal(await blockedPage.locator('#music-panel').getAttribute('data-state'),'blocked');
-  await blockedPage.locator('#name').tap();
-  await blockedPage.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='playing');
-  await blockedPage.locator('#music-toggle').click();
-  await blockedPage.locator('#name').tap();await blockedPage.keyboard.type('ไม่เปิดกลับเอง');
-  assert.equal(await blockedPage.locator('#music-panel iframe').count(),0);
-  await blocked.close();
-  // Network denial must leave a usable retry and original YouTube link.
-  const denied=await browser.newContext({viewport:{width:390,height:844},reducedMotion:'reduce'});
-  await denied.route('https://www.youtube.com/iframe_api',route=>route.abort('blockedbyclient'));
-  const deniedPage=await denied.newPage();await deniedPage.goto('http://127.0.0.1:5192');
-  await deniedPage.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='error');
-  assert.equal(await deniedPage.locator('.music-retry').isVisible(),true);await denied.close();
-  console.log('PASS music (mocked YouTube): default-on playback; persisted mute; page-interaction autoplay fallback; supplied video/loop/volume; visible player; desktop/mobile controls; visibility and manual pause; fair/temple pause/resume; close/pagehide cleanup; blocked autoplay; embed denial/retry; network denial; close-during-load race. Actual YouTube playback is not verified. Screenshots: /tmp/navait-music-qa');
-} finally {await browser?.close();server.kill();}
+  await page.screenshot({path:'/tmp/navait-music-qa/local-mp3-mobile.png'});
+  // The real media clock must wrap at the end of the supplied six-minute song.
+  await page.locator('#river-music').evaluate(a=>a.currentTime=a.duration-.2);
+  await page.waitForFunction(()=>{const a=document.querySelector('#river-music');return a.currentTime<3&&!a.paused;},null,{timeout:15000});
+  await page.evaluate(()=>dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true})));assert.equal(await page.locator('#river-music').evaluate(a=>a.paused),true);
+  await page.evaluate(()=>dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));await ready(page);
+  assert.deepEqual(external,[],'music must not contact YouTube or any external service');assert.deepEqual(errors,[]);
+  await context.close();
+  // Exercise a genuine browser autoplay denial and trusted touchscreen/keyboard unlock.
+  strictBrowser=await chromium.launch({...launch,args:['--no-sandbox','--enable-unsafe-swiftshader','--autoplay-policy=document-user-activation-required']});
+  for(const input of ['touch','keyboard']){
+    const blocked=await strictBrowser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'reduce'});
+    const p=await blocked.newPage();await p.goto('http://127.0.0.1:5192');
+    await p.waitForFunction(()=>document.querySelector('#music-toggle').dataset.state==='blocked');
+    await p.evaluate(()=>document.dispatchEvent(new MouseEvent('click',{bubbles:true})));
+    assert.equal(await p.locator('#river-music').evaluate(a=>a.paused),true);
+    if(input==='touch')await p.locator('#name').tap();else{await p.locator('#name').focus();await p.keyboard.press('KeyA');await p.keyboard.type('สุขใจ');}
+    await ready(p);
+    await p.locator('#music-toggle').tap();await p.locator('#name').tap();await p.keyboard.type('ปิดไว้');
+    assert.equal(await p.locator('#river-music').evaluate(a=>a.paused),true);await blocked.close();
+  }
+  const broken=await browser.newContext({viewport:{width:390,height:844},reducedMotion:'reduce'});
+  await broken.route('**/*.mp3',route=>route.fulfill({contentType:'audio/mpeg',body:Buffer.from('not-an-mp3')}));
+  const failed=await broken.newPage();await failed.goto('http://127.0.0.1:5192');
+  await failed.waitForFunction(()=>document.querySelector('#music-toggle').dataset.state==='error');
+  assert.match(await failed.locator('#music-status').textContent(),/โหลดเพลงไม่สำเร็จ/);
+  await broken.unroute('**/*.mp3');await failed.locator('#music-toggle').click();await ready(failed);await broken.close();
+  const race=await browser.newContext({viewport:{width:390,height:844},reducedMotion:'reduce'});
+  let release;const gate=new Promise(resolve=>{release=resolve;});
+  await race.route('**/*.mp3',async route=>{await gate;await route.continue();});
+  const pending=await race.newPage();await pending.goto('http://127.0.0.1:5192',{waitUntil:'domcontentloaded'});
+  await pending.locator('#music-toggle').click();release();await pending.waitForTimeout(500);
+  assert.equal(await pending.locator('#river-music').evaluate(a=>a.paused),true);assert.equal(await pending.locator('#music-toggle').getAttribute('data-state'),'off');await race.close();
+  console.log('PASS local MP3 music: real decode, signal and playback clock; real loop; HTTP range support; no video/YouTube/external requests; default autoplay; actual browser autoplay denial; touch/keyboard unlock; persisted mute/no-fetch; hidden-tab and fair/temple pause/resume; pagehide/pageshow; error retry; mute-during-load race. Screenshots: /tmp/navait-music-qa');
+} finally {await browser?.close();await strictBrowser?.close();server.kill();}

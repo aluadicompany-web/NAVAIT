@@ -363,7 +363,7 @@ export class River {
       this.height,
     );
     const hostBounds = this.host.getBoundingClientRect();
-    const panels = Array.from(document.querySelectorAll<HTMLElement>("#after:not([hidden]), #music-panel:not([hidden])"))
+    const panels = Array.from(document.querySelectorAll<HTMLElement>("#after:not([hidden]), #music-status:not([hidden])"))
       .map(panel => panel.getBoundingClientRect())
       .filter(rect => rect.width > 0 && rect.height > 0)
       .map(rect => ({ left: rect.left - hostBounds.left, right: rect.right - hostBounds.left,
