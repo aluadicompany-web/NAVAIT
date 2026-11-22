@@ -66,6 +66,14 @@ Links use `?krathong=<UUID>` on the existing page, requiring no Render rewrite o
 
 The browser suite also checks real Web Audio output samples and suspension, launch-effect cleanup, removed lower-left text, native/clipboard/manual share behavior, cancellation, and direct links to rows outside the newest 30. Service interactions use mocked responses; production configuration is unchanged.
 
+## Optional YouTube river music
+
+The header's **เปิดเพลง** button opens the user-selected video [`95s3Y8nVMV4`](https://www.youtube.com/watch?v=95s3Y8nVMV4) in a visible YouTube player at the screen edge. It loads the official IFrame API only after that click, starts at 25% volume, requests a single-video loop, and keeps native YouTube controls and an original-video link. Music and the existing synthesized ambience have separate switches. No audio is downloaded, extracted, bundled or stored in Supabase. Permission to use the chosen music is supplied by the project owner; this integration does not independently establish the video's license or embedding availability.
+
+The player pauses when the tab is hidden or when entering the temple/fair, and resumes on return if the listener had not manually paused it. Closing the dock destroys the player; reloading starts with music off. If the browser blocks playback, press play in the visible player. Network failures and embed restrictions show retry guidance and the original link instead of reporting success. YouTube may show its own ads or restrictions; uninterrupted playback is not guaranteed. An audio-only implementation requires an authorized media file rather than this embed.
+
+Run `BROWSER_EXECUTABLE=/usr/bin/chromium npm run test:music` for opt-in loading, video/loop/volume configuration, visible desktop/mobile controls, scene and visibility handling, manual pause, cleanup, error/retry and async-close tests. The suite mocks YouTube API/player boundaries; it does **not** verify that the real video plays. Screenshots are saved in `/tmp/navait-music-qa`. Onboarding's cloud proxy rejected YouTube requests with HTTP 403 during implementation; validate actual playback on the deployed HTTPS site, including a phone, before treating the music as live-verified.
+
 ## Thai riverside festival scene
 
 `src/render/festival.ts` builds a stylized Thai temple with tiered red roofs and chofa, golden chedis, a low wooden landing, fair stalls, bunting, hanging lamps, and warm light strings. The landing sits close to the water and new boats glide from a safe release point beyond its end into the river over three simulation seconds. Existing saved data is preserved; every rendered boat, including older saves and shared links, uses the safe river channel.
