@@ -1,6 +1,5 @@
 import musicUrl from "./assets/audio/loy-krathong.mp3?url";
 
-const MUTE_PREFERENCE = "navait.music.muted.v1";
 export const MUSIC_URL = musicUrl;
 type MusicState = "off" | "loading" | "playing" | "paused" | "blocked" | "error";
 
@@ -16,11 +15,11 @@ export class RiverMusic {
   private state: MusicState = "off";
 
   constructor(private button: HTMLButtonElement, private status: HTMLElement) {
-    try { this.enabled = localStorage.getItem(MUTE_PREFERENCE) !== "true"; } catch {}
     this.audio.id = "river-music";
     this.audio.hidden = true;
     this.audio.setAttribute("aria-hidden", "true");
-    this.audio.preload = "none";
+    this.audio.autoplay = true;
+    this.audio.preload = "auto";
     this.audio.loop = true;
     this.audio.volume = 0.25;
     this.status.after(this.audio);
@@ -34,7 +33,7 @@ export class RiverMusic {
     window.addEventListener("pagehide", this.pageHide);
     window.addEventListener("pageshow", this.pageShow);
     this.update("off");
-    if (this.enabled) this.tryPlay();
+    this.tryPlay();
   }
   private canPlay() {
     return this.enabled && !this.scenePaused && !document.hidden && !this.away && !this.disposed;
@@ -51,12 +50,10 @@ export class RiverMusic {
     this.status.textContent = message;
     this.status.hidden = !message;
   }
-  private rememberMute() {
-    try { localStorage.setItem(MUTE_PREFERENCE, String(!this.enabled)); } catch {}
-  }
   private tryPlay() {
     if (!this.canPlay()) return;
-    // Keep a muted visitor from fetching the audio at all until they enable it.
+    // Every new visit requests audible playback; browser policy may still block it.
+    this.audio.autoplay = true;
     if (!this.audio.getAttribute("src")) this.audio.src = MUSIC_URL;
     if (!this.audio.paused) return;
     const generation = ++this.generation;
@@ -98,11 +95,10 @@ export class RiverMusic {
       this.enabled = true;
       this.audio.load();
     } else this.enabled = !this.enabled;
-    this.rememberMute();
     this.generation++;
     this.waitingForGesture = false;
     if (this.enabled) this.tryPlay();
-    else { this.audio.pause(); this.update("off"); }
+    else { this.audio.autoplay = false; this.audio.pause(); this.update("off"); }
   };
   private interaction = (event: Event) => {
     if (!event.isTrusted || !this.waitingForGesture || !this.canPlay()) return;
@@ -112,11 +108,16 @@ export class RiverMusic {
   };
   private reconcile() {
     if (this.canPlay()) this.tryPlay();
-    else { this.generation++; this.audio.pause(); this.update(this.enabled ? "paused" : "off"); }
+    else { this.generation++; this.audio.autoplay = false; this.audio.pause(); this.update(this.enabled ? "paused" : "off"); }
   }
   private visibility = () => this.reconcile();
   private pageHide = () => { this.away = true; this.reconcile(); };
-  private pageShow = () => { this.away = false; this.reconcile(); };
+  private pageShow = () => {
+    // Returning through browser history is another entry, unlike switching tabs/scenes.
+    if (this.away) this.enabled = true;
+    this.away = false;
+    this.reconcile();
+  };
   setScenePaused(paused: boolean) {
     this.scenePaused = paused;
     this.reconcile();
@@ -127,6 +128,7 @@ export class RiverMusic {
     this.audio.removeEventListener("playing", this.playing);
     this.audio.removeEventListener("pause", this.paused);
     this.audio.removeEventListener("error", this.failed);
+    this.audio.autoplay = false;
     this.audio.pause();
     this.audio.removeAttribute("src");
     this.audio.load();
