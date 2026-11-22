@@ -1366,7 +1366,7 @@ header {
 }
 .fair-context-status[hidden] { display: none; }
 
-/* Optional visible music dock; no network/player until the player asks for music. */
+/* Default-on visible music dock; users can mute it and retain that preference. */
 .music-toggle { display: inline-flex; align-items: center; gap: 6px; }
 .music-toggle[aria-pressed="true"] { background: #ead09d; color: #25483e; }
 .music-panel {

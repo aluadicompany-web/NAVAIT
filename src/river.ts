@@ -6,7 +6,7 @@ import { createWater } from "./render/water";
 import { designs } from "./catalog";
 import { CostumePool } from "./ceremony";
 import { CeremonyAvatar } from "./render/avatar";
-import { riverLane, keepInChannel, spreadBoats } from "./navigation";
+import { riverLane, keepInChannel, spreadBoats, avoidLabelPanels } from "./navigation";
 type Boat = {
   item: Krathong;
   model: Model;
@@ -362,6 +362,12 @@ export class River {
       this.width,
       this.height,
     );
+    const hostBounds = this.host.getBoundingClientRect();
+    const panels = Array.from(document.querySelectorAll<HTMLElement>("#after:not([hidden]), #music-panel:not([hidden])"))
+      .map(panel => panel.getBoundingClientRect())
+      .filter(rect => rect.width > 0 && rect.height > 0)
+      .map(rect => ({ left: rect.left - hostBounds.left, right: rect.right - hostBounds.left,
+        top: rect.top - hostBounds.top, bottom: rect.bottom - hostBounds.top }));
     for (const boat of this.boats) {
       const { item, model, label } = boat;
       const age = this.time;
@@ -417,7 +423,11 @@ export class River {
       const screen = model.group.position.clone();
       screen.y += 1.45 * scale;
       screen.project(this.camera);
-      label.style.transform = `translate(-50%,-100%) translate(${(screen.x * 0.5 + 0.5) * this.width}px,${(-screen.y * 0.5 + 0.5) * this.height}px)`;
+      const anchor = avoidLabelPanels(
+        { x: (screen.x * 0.5 + 0.5) * this.width, y: (-screen.y * 0.5 + 0.5) * this.height },
+        { width: label.offsetWidth, height: label.offsetHeight }, panels,
+      );
+      label.style.transform = `translate(-50%,-100%) translate(${anchor.x}px,${anchor.y}px)`;
     }
     this.festival.update(this.time, this.camera, mobile);
     this.updateEffect();

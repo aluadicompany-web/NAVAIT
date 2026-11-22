@@ -18,7 +18,7 @@ window.YT={Player:class {
  }
  getIframe(){return this.frame;}
  setVolume(n){this.volume=n;}
- playVideo(){this.log.push('play');if(window.__musicMode==='blocked'){this.options.events.onAutoplayBlocked({target:this});return;}this.options.events.onStateChange({target:this,data:1});}
+ playVideo(){this.log.push('play');this.attempts=(this.attempts||0)+1;if(window.__musicMode==='blocked'&&this.attempts===1){this.options.events.onAutoplayBlocked({target:this});return;}this.options.events.onStateChange({target:this,data:1});}
  pauseVideo(){this.log.push('pause');this.options.events.onStateChange({target:this,data:2});}
  destroy(){this.log.push('destroy');this.destroyed=true;this.frame.remove();window.removeEventListener('message',this.listener);}
 }};
@@ -34,14 +34,20 @@ try {
   await context.route('https://www.youtube-nocookie.com/embed/*',route=>route.fulfill({contentType:'text/html; charset=utf-8',body:'<!doctype html><meta charset="utf-8"><html lang="th"><body style="margin:0;background:#122e39;color:#ffedc5;font:14px sans-serif;display:grid;place-content:center;height:100vh;text-align:center"><p>YouTube · ตัวเล่นจำลองสำหรับ QA</p><button onclick="parent.postMessage(\'mock-play\',\'*\')">เล่น</button><button onclick="parent.postMessage(\'mock-pause\',\'*\')">พัก</button></body></html>'}));
   const page=await context.newPage(), errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:5192');
-  assert.equal(requests,0);assert.equal(await page.locator('#music-panel').isVisible(),false);
-  await page.locator('#music-toggle').click();
   await page.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='playing');
   assert.equal(requests,1);
   const options=await page.evaluate(()=>{const p=window.__musicPlayers[0];return {videoId:p.options.videoId,vars:p.options.playerVars,volume:p.volume};});
+  assert.equal(await page.locator('#music-toggle').getAttribute('aria-label'),'ปิดเพลงประกอบ');
   assert.equal(options.videoId,'95s3Y8nVMV4');assert.equal(options.vars.autoplay,0);assert.equal(options.vars.loop,1);assert.equal(options.vars.playlist,'95s3Y8nVMV4');assert.equal(options.volume,25);
   const frame=page.locator('#music-panel iframe');
   const bounds=await frame.boundingBox();assert.ok(bounds.width>=200&&bounds.height>=200);
+  await page.waitForFunction(()=>{
+    const panel=document.querySelector('#music-panel').getBoundingClientRect();
+    return [...document.querySelectorAll('.boat-label')].every(label=>{
+      const box=label.getBoundingClientRect();
+      return box.right<=panel.left || box.left>=panel.right || box.bottom<=panel.top || box.top>=panel.bottom;
+    });
+  });
   await page.screenshot({path:'/tmp/navait-music-qa/desktop.png'});
   const visibility=hidden=>page.evaluate(hidden=>{if(hidden)Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});else delete document.hidden;document.dispatchEvent(new Event('visibilitychange'));},hidden);
   await visibility(true);await page.waitForFunction(()=>document.querySelector('#music-toggle').getAttribute('aria-pressed')==='false');
@@ -71,9 +77,15 @@ try {
   await page.locator('.music-close').click();assert.equal(await page.locator('#music-panel').isVisible(),false);assert.equal(await page.locator('#music-panel iframe').count(),0);
   await page.evaluate(()=>window.__musicMode='blocked');await page.locator('#music-toggle').click();
   await page.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='blocked');
-  assert.match(await page.locator('.music-status').textContent(),/กด ▶/);
-  await page.frameLocator('#music-panel iframe').getByRole('button',{name:'เล่น',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='playing');
+  assert.match(await page.locator('.music-status').textContent(),/แตะหรือคลิกที่หน้าเว็บ/);
+  await page.locator('#again').click();await page.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='playing');
   await page.locator('.music-close').click();
+  const beforeReload=requests;
+  await page.reload();
+  assert.equal(await page.locator('#music-panel').isVisible(),false);
+  assert.equal(requests,beforeReload,'saved mute must prevent automatic player loading');
+  await page.locator('#name').click();await page.keyboard.type('เงียบ');
+  assert.equal(await page.locator('#music-panel iframe').count(),0,'ordinary interactions must not undo mute');
   await page.evaluate(()=>window.__musicMode='error');await page.locator('#music-toggle').click();
   await page.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='error');assert.match(await page.locator('.music-status').textContent(),/ไม่อนุญาต/);
   assert.equal(await page.locator('.music-footer a').getAttribute('href'),'https://www.youtube.com/watch?v=95s3Y8nVMV4');
@@ -84,14 +96,29 @@ try {
   const race=await browser.newContext({viewport:{width:1440,height:900},reducedMotion:'reduce'});
   let releaseAPI;const apiGate=new Promise(resolve=>{releaseAPI=resolve;});
   await race.route('https://www.youtube.com/iframe_api',async route=>{await apiGate;await route.fulfill({contentType:'text/javascript',body:mockAPI});});
-  const racePage=await race.newPage();await racePage.goto('http://127.0.0.1:5192');
-  await racePage.locator('#music-toggle').click();await racePage.locator('.music-close').click();releaseAPI();await racePage.waitForFunction(()=>Array.isArray(window.__musicPlayers));
+  const racePage=await race.newPage();await racePage.goto('http://127.0.0.1:5192',{waitUntil:'domcontentloaded'});
+  await racePage.locator('.music-close').click();releaseAPI();await racePage.waitForFunction(()=>Array.isArray(window.__musicPlayers));
   assert.equal(await racePage.locator('#music-panel iframe').count(),0);assert.equal(await racePage.evaluate(()=>window.__musicPlayers.length),0);await race.close();
+  const blocked=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'reduce'});
+  await blocked.addInitScript(()=>{window.__musicMode='blocked';});
+  await blocked.route('https://www.youtube.com/iframe_api',route=>route.fulfill({contentType:'text/javascript',body:mockAPI}));
+  await blocked.route('https://www.youtube-nocookie.com/embed/*',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><p>YouTube test player</p>'}));
+  const blockedPage=await blocked.newPage();await blockedPage.goto('http://127.0.0.1:5192');
+  await blockedPage.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='blocked');
+  // Synthetic events do not count as user activation.
+  await blockedPage.evaluate(()=>document.dispatchEvent(new MouseEvent('click',{bubbles:true})));
+  assert.equal(await blockedPage.locator('#music-panel').getAttribute('data-state'),'blocked');
+  await blockedPage.locator('#name').tap();
+  await blockedPage.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='playing');
+  await blockedPage.locator('#music-toggle').click();
+  await blockedPage.locator('#name').tap();await blockedPage.keyboard.type('ไม่เปิดกลับเอง');
+  assert.equal(await blockedPage.locator('#music-panel iframe').count(),0);
+  await blocked.close();
   // Network denial must leave a usable retry and original YouTube link.
   const denied=await browser.newContext({viewport:{width:390,height:844},reducedMotion:'reduce'});
   await denied.route('https://www.youtube.com/iframe_api',route=>route.abort('blockedbyclient'));
-  const deniedPage=await denied.newPage();await deniedPage.goto('http://127.0.0.1:5192');await deniedPage.locator('#music-toggle').click();
+  const deniedPage=await denied.newPage();await deniedPage.goto('http://127.0.0.1:5192');
   await deniedPage.waitForFunction(()=>document.querySelector('#music-panel').dataset.state==='error');
   assert.equal(await deniedPage.locator('.music-retry').isVisible(),true);await denied.close();
-  console.log('PASS music (mocked YouTube): explicit opt-in; supplied video/loop/volume; visible player; desktop/mobile controls; visibility and manual pause; fair/temple pause/resume; close/pagehide cleanup; blocked autoplay; embed denial/retry; network denial; close-during-load race. Actual YouTube playback is not verified. Screenshots: /tmp/navait-music-qa');
+  console.log('PASS music (mocked YouTube): default-on playback; persisted mute; page-interaction autoplay fallback; supplied video/loop/volume; visible player; desktop/mobile controls; visibility and manual pause; fair/temple pause/resume; close/pagehide cleanup; blocked autoplay; embed denial/retry; network denial; close-during-load race. Actual YouTube playback is not verified. Screenshots: /tmp/navait-music-qa');
 } finally {await browser?.close();server.kill();}

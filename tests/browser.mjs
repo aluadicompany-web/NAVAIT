@@ -111,6 +111,7 @@ try {
     reducedMotion: "reduce",
   });
   await context.addInitScript(() => {
+    localStorage.setItem("navait.music.muted.v1", "true");
     window.__audioContexts = [];
     const Native = window.AudioContext;
     window.AudioContext = class extends Native {
@@ -371,6 +372,7 @@ try {
     reducedMotion: "reduce",
   });
   await online.addInitScript(() => {
+    localStorage.setItem("navait.music.muted.v1", "true");
     window.__copied = "";
     window.__nativeShare = null;
     Object.defineProperty(navigator, "share", {

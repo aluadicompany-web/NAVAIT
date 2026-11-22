@@ -1,4 +1,5 @@
-/** User-selected YouTube music. The visible player loads only after a click. */
+/** Default-on river music; browser autoplay blocks retry on a page interaction. */
+const MUTE_PREFERENCE = "navait.music.muted.v1";
 export const MUSIC_VIDEO_ID = "95s3Y8nVMV4";
 export const MUSIC_URL = `https://www.youtube.com/watch?v=${MUSIC_VIDEO_ID}`;
 
@@ -72,6 +73,7 @@ export class RiverMusic {
   private scenePaused = false;
   private generation = 0;
   private wantsPlayback = false;
+  private waitingForGesture = false;
   private lastState = -1;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private status: HTMLElement;
@@ -89,8 +91,13 @@ export class RiverMusic {
     this.closeButton.addEventListener("click", this.close);
     this.retry.addEventListener("click", this.open);
     document.addEventListener("visibilitychange", this.visibility);
-    window.addEventListener("pagehide", this.close);
+    window.addEventListener("pagehide", this.pageHide);
+    document.addEventListener("click", this.interaction, { capture: true, passive: true });
+    document.addEventListener("keydown", this.interaction, true);
     this.update(false);
+    let muted = false;
+    try { muted = localStorage.getItem(MUTE_PREFERENCE) === "true"; } catch {}
+    if (!muted) void this.open();
   }
   private canPlay() {
     return this.requested && !this.scenePaused && !document.hidden;
@@ -103,7 +110,21 @@ export class RiverMusic {
     this.panel.hidden = !this.requested;
     if (!this.requested) this.panel.dataset.state = "off";
   }
-  private toggle = () => { if (this.requested) this.close(); else void this.open(); };
+  private rememberMute(muted: boolean) {
+    try { localStorage.setItem(MUTE_PREFERENCE, String(muted)); } catch {}
+  }
+  private toggle = () => {
+    if (this.requested) this.close();
+    else { this.rememberMute(false); void this.open(); }
+  };
+  private interaction = (event: Event) => {
+    if (!event.isTrusted || !this.waitingForGesture || !this.wantsPlayback || !this.ready || !this.canPlay()) return;
+    if (event.target instanceof Element && event.target.closest("#music-toggle,.music-close,.music-retry")) return;
+    if (event instanceof KeyboardEvent && (event.repeat || ["Escape", "Shift", "Control", "Alt", "Meta"].includes(event.key))) return;
+    // Retry synchronously inside the trusted interaction, including typing a name.
+    this.waitingForGesture = false;
+    this.player?.playVideo();
+  };
   private clearTimer() {
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
@@ -113,6 +134,7 @@ export class RiverMusic {
     this.generation++;
     this.ready = false;
     this.wantsPlayback = false;
+    this.waitingForGesture = false;
     this.player?.destroy();
     this.player = null;
     this.slot.replaceChildren();
@@ -130,6 +152,7 @@ export class RiverMusic {
     this.ready = false;
     this.requested = true;
     this.wantsPlayback = true;
+    this.waitingForGesture = false;
     this.lastState = -1;
     this.slot.replaceChildren();
     this.slot.hidden = false;
@@ -152,6 +175,7 @@ export class RiverMusic {
         host: "https://www.youtube-nocookie.com",
         videoId: MUSIC_VIDEO_ID,
         playerVars: {
+          // Start via playVideo after setting a gentle volume in onReady.
           autoplay: 0, controls: 1, playsinline: 1, rel: 0,
           loop: 1, playlist: MUSIC_VIDEO_ID, origin: location.origin,
         },
@@ -165,16 +189,22 @@ export class RiverMusic {
             frame.title = "เพลงประกอบคืนลอยกระทงจาก YouTube";
             frame.referrerPolicy = "strict-origin-when-cross-origin";
             target.setVolume(25);
-            this.status.textContent = "กด ▶ ในตัวเล่นหากเพลงยังไม่เริ่ม";
+            frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+            this.status.textContent = "กำลังเริ่มเพลง…";
             this.reconcile();
           },
           onStateChange: ({ target, data }) => {
             if (generation !== this.generation || !this.requested) return;
             if (data === 1 && !this.canPlay()) { target.pauseVideo(); return; }
-            if (data === 2 && this.canPlay() && (this.lastState === 1 || this.lastState === 3))
+            if (data === 2 && this.canPlay() && (this.lastState === 1 || this.lastState === 3)) {
               this.wantsPlayback = false;
+              this.waitingForGesture = false;
+            }
             const playing = data === 1;
-            if (playing) this.wantsPlayback = true;
+            if (playing) {
+              this.wantsPlayback = true;
+              this.waitingForGesture = false;
+            }
             this.lastState = data;
             this.panel.dataset.state = playing ? "playing" : "paused";
             if (playing) this.status.textContent = "";
@@ -189,8 +219,9 @@ export class RiverMusic {
           },
           onAutoplayBlocked: () => {
             if (generation !== this.generation || !this.requested) return;
+            this.waitingForGesture = true;
             this.panel.dataset.state = "blocked";
-            this.status.textContent = "กด ▶ ในตัวเล่นเพื่อเริ่มเพลง";
+            this.status.textContent = "เบราว์เซอร์พักเสียงไว้ แตะหรือคลิกที่หน้าเว็บเพื่อเริ่มเพลง";
             this.update(false);
           },
         },
@@ -211,24 +242,32 @@ export class RiverMusic {
     this.reconcile();
   }
   private close = () => {
+    this.rememberMute(true);
+    this.stop();
+    if (!document.hidden) this.button.focus({ preventScroll: true });
+  };
+  private pageHide = () => this.stop();
+  private stop() {
     this.generation++;
     this.clearTimer();
     this.requested = false;
     this.wantsPlayback = false;
+    this.waitingForGesture = false;
     this.ready = false;
     this.player?.destroy();
     this.player = null;
     this.slot.replaceChildren();
     this.status.textContent = "";
     this.update(false);
-    if (!document.hidden) this.button.focus({ preventScroll: true });
-  };
+  }
   dispose() {
-    this.close();
+    this.stop();
     this.button.removeEventListener("click", this.toggle);
     this.closeButton.removeEventListener("click", this.close);
     this.retry.removeEventListener("click", this.open);
     document.removeEventListener("visibilitychange", this.visibility);
-    window.removeEventListener("pagehide", this.close);
+    window.removeEventListener("pagehide", this.pageHide);
+    document.removeEventListener("click", this.interaction, true);
+    document.removeEventListener("keydown", this.interaction, true);
   }
 }

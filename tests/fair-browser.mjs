@@ -9,6 +9,7 @@ try {
   await mkdir('/tmp/navait-fair-qa',{recursive:true});
   browser=await chromium.launch({executablePath:process.env.BROWSER_EXECUTABLE||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--enable-unsafe-swiftshader']});
   const page=await browser.newPage({viewport:{width:1440,height:900},reducedMotion:'reduce'});
+  await page.addInitScript(()=>localStorage.setItem("navait.music.muted.v1","true"));
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:5187');
   await page.locator('#name').fill('คืนแห่งความสุข');

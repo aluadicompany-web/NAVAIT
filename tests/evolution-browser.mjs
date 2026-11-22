@@ -9,6 +9,7 @@ try {
   await mkdir('/tmp/navait-evolution-qa',{recursive:true});
   browser=await chromium.launch({executablePath:process.env.BROWSER_EXECUTABLE||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--enable-unsafe-swiftshader']});
   const context=await browser.newContext({viewport:{width:1440,height:900},reducedMotion:'reduce'});
+  await context.addInitScript(()=>localStorage.setItem("navait.music.muted.v1","true"));
   const page=await context.newPage(),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:5189');

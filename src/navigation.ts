@@ -49,3 +49,20 @@ export function spreadBoats(ids: readonly string[]) {
   }
   return result;
 }
+
+export type ScreenPanel = { left: number; right: number; top: number; bottom: number };
+// Labels remain clickable when music or the completion card covers their anchor.
+export function avoidLabelPanels(
+  point: { x: number; y: number },
+  size: { width: number; height: number },
+  panels: readonly ScreenPanel[],
+) {
+  let y = point.y;
+  for (const panel of [...panels].sort((a, b) => b.top - a.top)) {
+    if (point.x + size.width / 2 > panel.left - 8 &&
+        point.x - size.width / 2 < panel.right + 8 &&
+        y > panel.top - 8 && y - size.height < panel.bottom + 8)
+      y = panel.top - 8;
+  }
+  return { x: point.x, y };
+}

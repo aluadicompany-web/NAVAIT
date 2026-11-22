@@ -89,3 +89,21 @@ test('random-looking river layouts have no fixed rows or columns and retain brea
     }
   }
 });
+
+test('wish labels avoid music and completion panels without changing the boat anchor X', async () => {
+  const { avoidLabelPanels } = await import('../src/navigation.ts');
+  const card = {left:250,right:390,top:600,bottom:820};
+  const music = {left:0,right:320,top:500,bottom:780};
+  const size = {width:100,height:25};
+  const free = {x:80,y:450};
+  assert.deepEqual(avoidLabelPanels(free,size,[card,music]),free);
+  for (const panels of [[card],[music,card],[card,music]]) {
+    const position=avoidLabelPanels({x:280,y:700},size,panels);
+    assert.equal(position.x,280);
+    for(const panel of panels)assert.ok(
+      position.x+size.width/2<=panel.left || position.x-size.width/2>=panel.right ||
+      position.y<=panel.top || position.y-size.height>=panel.bottom,
+      'label hit target is hidden under a panel',
+    );
+  }
+});

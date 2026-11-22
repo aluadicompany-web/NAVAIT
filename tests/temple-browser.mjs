@@ -59,6 +59,7 @@ try {
       reducedMotion: "reduce",
     });
     await context.addInitScript(() => {
+      localStorage.setItem("navait.music.muted.v1", "true");
       window.__chants = [];
       const engine = {
         speaking: false,
