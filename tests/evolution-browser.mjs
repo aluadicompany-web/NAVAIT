@@ -26,6 +26,8 @@ try {
   const positions=()=>page.locator('.boat-label').evaluateAll(labels=>labels.map(l=>{const r=l.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),name:l.textContent};}));
   const first=await positions();
   assert.equal(new Set(first.map(p=>`${p.x},${p.y}`)).size,30);
+  assert.ok(new Set(first.map(p=>p.x)).size>20, 'boats must not align in a few columns');
+  assert.ok(new Set(first.map(p=>p.y)).size>20, 'boats must not align in a few rows');
   assert.ok(Math.max(...first.map(p=>p.x))-Math.min(...first.map(p=>p.x))>800);
   assert.equal(await page.evaluate(()=>localStorage.getItem('navait.krathongs.v1')),original);
   await page.screenshot({path:'/tmp/navait-evolution-qa/spread-desktop.png'});

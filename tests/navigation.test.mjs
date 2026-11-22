@@ -68,3 +68,24 @@ test('reload layout separates 30 identical saved coordinates without mutating da
   for(const p of first.values()) { assert.ok(p.x>=.05&&p.x<=.95);assert.ok(p.y>=.45&&p.y<=.8); }
   assert.equal(spreadBoats([]).size,0);
 });
+
+test('random-looking river layouts have no fixed rows or columns and retain breathing room', async () => {
+  const { spreadBoats } = await import('../src/navigation.ts');
+  for (const prefix of ['legacy', 'boat', 'test', 'กระทง']) {
+    for (const count of [1, 9, 12, 30]) {
+      const ids = Array.from({length: count}, (_, i) => `${prefix}-${i}`);
+      const layout = spreadBoats(ids), points = [...layout.values()];
+      assert.deepEqual([...layout], [...spreadBoats([...ids].reverse())]);
+      assert.ok(new Set(points.map(p => p.x.toFixed(4))).size >= Math.ceil(count * .8));
+      assert.ok(new Set(points.map(p => p.y.toFixed(4))).size >= Math.ceil(count * .8));
+      for (let i = 0; i < points.length; i++) {
+        assert.ok(points[i].x >= .12 && points[i].x <= .88);
+        assert.ok(points[i].y >= .45 && points[i].y <= .8);
+        for (let j = 0; j < i; j++) {
+          const separation = Math.hypot((points[i].x-points[j].x)/.13, (points[i].y-points[j].y)/.09);
+          assert.ok(separation > .6, `crowded boats for ${prefix}, count=${count}`);
+        }
+      }
+    }
+  }
+});
