@@ -21,7 +21,7 @@ export function createWater() {
         vec2 screen=gl_FragCoord.xy/vec2(viewportWidth,viewportHeight);
         float aspect=viewportWidth/viewportHeight;
         vec2 cover=vec2(min(1.,aspect/2.),min(1.,2./aspect));
-        vec2 uv=vec2(screen.x*cover.x+(1.-cover.x)*.55,1.-(1.-screen.y)*cover.y);
+        vec2 uv=vec2(screen.x*cover.x+(1.-cover.x)*.55,1.-(1.-screen.y+.045)*cover.y);
         float ripple=sin(p.x*3.2+p.y*10.-time*.85)+sin(p.x*8.-p.y*19.+time*.65)*.35;
         uv.x+=ripple*.0018;
         uv.y+=sin(p.y*22.+p.x*2.+time*.7)*.0009;

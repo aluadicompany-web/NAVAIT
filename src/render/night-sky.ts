@@ -61,9 +61,12 @@ export class NightSky {
   }
   resize(width: number, height: number, pixelRatio: number) {
     const scale = Math.max(width / 1774, height / 887);
+    // Raise the distant shore above the foreground bank without stretching the moon.
+    const lift = height * .045;
+    this.host.style.backgroundPosition = `55% ${-lift}px`;
     this.material.uniforms.aspect.value = width / height;
     this.material.uniforms.pixelRatio.value = pixelRatio;
-    this.material.uniforms.moon.value.set((.47 * 1774 * scale - (1774 * scale - width) * .55) / width, .1 * 887 * scale / height);
+    this.material.uniforms.moon.value.set((.47 * 1774 * scale - (1774 * scale - width) * .55) / width, (.1 * 887 * scale - lift) / height);
     this.stars.geometry.setDrawRange(0, width < 760 ? 60 : 104);
   }
   update(time: number) { this.material.uniforms.time.value = time; }
@@ -71,6 +74,7 @@ export class NightSky {
     this.image.onload = this.image.onerror = null;
     this.stars.geometry.dispose(); this.material.dispose();
     this.host.style.backgroundImage = "";
+    this.host.style.backgroundPosition = "";
     delete this.host.dataset.backgroundReady;
   }
 }
