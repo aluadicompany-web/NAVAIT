@@ -1,12 +1,18 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FAIR_STOPS } from '../fair-state';
+import { FairCrowd } from '../fair-crowd';
 
 // Render adapter: fair-state and Fair own navigation and activity rules.
 export class FairWorld {
   readonly scene = new T.Scene();
   readonly camera = new T.OrthographicCamera(-12, 12, 8, -8, .1, 120);
   readonly renderer: T.WebGLRenderer;
+  private crowd = new FairCrowd();
+  private crowdTemplate = new T.Group();
+  private crowdParts: { source: T.Mesh; instances: T.InstancedMesh }[] = [];
+  private crowdLegs: T.Group[] = [];
+  private crowdArms: T.Group[] = [];
   private staticRoot = new T.Group();
   private wheel = new T.Group();
   private cabins: T.Group[] = [];
@@ -44,6 +50,7 @@ export class FairWorld {
     this.buildStreet();
     this.buildWheel();
     this.buildPlayer(name, photo);
+    this.buildCrowd();
     this.batch(this.staticRoot);
     this.canvas.dataset.renderer = 'three-webgl';
     this.canvas.addEventListener('webglcontextlost', this.contextLost);
@@ -130,11 +137,8 @@ export class FairWorld {
         this.ball(g,i%2?0xf0ce8b:0xe9a49c,x+Math.cos(a)*.29,.8,z+Math.sin(a)*.29,.12,.12,.12);
       }
     }
-    for(const [i,x] of [7.8,12.8,17.9,27,31.5,36.5].entries()) {
-      const npc=new T.Group();npc.position.set(x,0,1.2);
-      this.person(npc,['#b5a6c9','#dda98a','#87b4aa'][i%3],false);g.add(npc);
-    }
   }
+
   private stall(x: number, label: string, color: string, index: number) {
     const g=new T.Group();g.position.set(x,0,-2.25);this.staticRoot.add(g);
     this.box(g,0x865d45,0,.17,0,4.4,.32,3.3);
@@ -245,12 +249,29 @@ export class FairWorld {
     for(let i=0;i<8;i++){const a=i*Math.PI/4;this.ball(this.wheel,0xe6b88a,Math.cos(a)*.52,Math.sin(a)*.52,.55,.16,.25,.08,true);}
     this.batch(this.wheel);
   }
+  private buildCrowd() {
+    const limbs=this.person(this.crowdTemplate,"#ffffff",false);
+    this.crowdLegs=limbs.legs;this.crowdArms=limbs.arms;
+    const colors=["#b5a6c9","#dda98a","#87b4aa","#e4bc78","#9bb5d4","#ce9eb2"];
+    this.crowdTemplate.traverse(source=>{
+      if(!(source instanceof T.Mesh))return;
+      const instances=new T.InstancedMesh(source.geometry,source.material,15);
+      instances.instanceMatrix.setUsage(T.DynamicDrawUsage);instances.frustumCulled=false;
+      instances.name="Wandering fair visitors";
+      if(source.material instanceof T.MeshStandardMaterial&&source.material.color.getHex()===0xffffff)
+        for(let i=0;i<15;i++)instances.setColorAt(i,new T.Color(colors[i%colors.length]));
+      this.scene.add(instances);this.crowdParts.push({source,instances});
+    });
+    this.canvas.dataset.npcCount=String(this.crowd.visitors.length);
+  }
   private person(g: T.Group,color: string, articulated: boolean) {
+    const legs:T.Group[]=[],arms:T.Group[]=[];
     for(const side of [-1,1]) {
       const leg=new T.Group();leg.position.set(side*.14,.5,0);g.add(leg);
       this.box(leg,0x4b526b,0,-.18,0,.21,.42,.23);this.box(leg,0xf0d8b6,0,-.4,.06,.24,.13,.36);
       const arm=new T.Group();arm.position.set(side*.32,1.03,0);g.add(arm);
       this.ball(arm,color,0,-.09,0,.11,.22,.12);this.ball(arm,0xe9bf9d,0,-.33,.03,.085,.15,.09);
+      legs.push(leg);arms.push(arm);
       if(articulated){this.legs.push(leg);this.arms.push(arm);}
     }
     this.ball(g,color,0,.86,0,.32,.42,.24);
@@ -260,6 +281,7 @@ export class FairWorld {
     // Contact ellipse requires no shadow maps.
     const shadowMat=new T.MeshBasicMaterial({color:0x3b4946,transparent:true,opacity:.2,depthWrite:false});this.mats.add(shadowMat);
     const geo=new T.CircleGeometry(.45,20);this.geos.add(geo);const shadow=new T.Mesh(geo,shadowMat);shadow.rotation.x=-Math.PI/2;shadow.position.y=.05;shadow.scale.y=.65;g.add(shadow);
+    return {legs,arms};
   }
   private buildPlayer(name: string, photo: string) {
     const hue=(Array.from(name).reduce((n,s)=>n+s.charCodeAt(0),0)*29)%360;
@@ -319,6 +341,18 @@ export class FairWorld {
     this.player.rotation.y=moving?Math.sin(step)*.02:0;
     this.legs.forEach((leg,i)=>leg.rotation.x=moving&&!reduced?Math.sin(step+i*Math.PI)*.5:0);
     this.arms.forEach((arm,i)=>arm.rotation.x=moving&&!reduced?Math.sin(step+i*Math.PI)*-.32:0);
+    this.crowd.update(dt,reduced);
+    this.crowd.visitors.forEach((visitor,index)=>{
+      this.crowdTemplate.position.set(visitor.x,.08,visitor.z);
+      this.crowdTemplate.rotation.y=visitor.heading;
+      this.crowdTemplate.scale.setScalar(.85+(index%4)*.055);
+      this.crowdLegs.forEach((leg,i)=>leg.rotation.x=visitor.moving&&!reduced?Math.sin(visitor.phase+i*Math.PI)*.45:0);
+      this.crowdArms.forEach((arm,i)=>arm.rotation.x=visitor.moving&&!reduced?Math.sin(visitor.phase+i*Math.PI)*-.3:0);
+      this.crowdTemplate.updateMatrixWorld(true);
+      for(const part of this.crowdParts)part.instances.setMatrixAt(index,part.source.matrixWorld);
+    });
+    for(const part of this.crowdParts)part.instances.instanceMatrix.needsUpdate=true;
+    this.canvas.dataset.npcMotion=this.crowd.visitors.reduce((sum,v)=>sum+v.phase,0).toFixed(4);
     this.renderer.render(this.scene,this.camera);
     this.canvas.dataset.drawCalls=String(this.renderer.info.render.calls);
     this.canvas.dataset.triangles=String(this.renderer.info.render.triangles);
@@ -327,6 +361,7 @@ export class FairWorld {
   dispose() {
     this.disposed=true;this.image.onload=null;this.image.onerror=null;this.image.src='';
     this.canvas.removeEventListener('webglcontextlost',this.contextLost);this.canvas.removeEventListener('webglcontextrestored',this.contextRestored);
+    this.crowdParts.forEach(part=>part.instances.dispose());
     this.geos.forEach(g=>g.dispose());this.mats.forEach(m=>m.dispose());this.textures.forEach(t=>t.dispose());this.renderer.dispose();this.scene.clear();
   }
 }

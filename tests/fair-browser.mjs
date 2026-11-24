@@ -18,6 +18,14 @@ try {
   await page.locator('#enter-fair').click();
   await page.locator('.fair-room').waitFor();
   await page.waitForFunction(()=>Number(document.querySelector('.fair-room canvas').dataset.drawCalls)>0);
+  assert.equal(await page.locator('.fair-room canvas').getAttribute('data-npc-count'),'15');
+  const crowdMotion=()=>page.locator('.fair-room canvas').getAttribute('data-npc-motion');
+  const frozenCrowd=await crowdMotion();await page.waitForTimeout(200);assert.equal(await crowdMotion(),frozenCrowd);
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.waitForFunction(before=>document.querySelector('.fair-room canvas').dataset.npcMotion!==before,frozenCrowd);
+  await page.waitForTimeout(1200);await page.screenshot({path:'/tmp/navait-fair-qa/wandering-visitors.png'});
+  await page.emulateMedia({reducedMotion:'reduce'});await page.waitForTimeout(150);
+  const pausedCrowd=await crowdMotion();await page.waitForTimeout(200);assert.equal(await crowdMotion(),pausedCrowd);
   assert.equal(await page.locator('.fair-room canvas').getAttribute('data-renderer'),'three-webgl');
   assert.ok(Number(await page.locator('.fair-room canvas').getAttribute('data-draw-calls'))<100);
   await page.waitForTimeout(500);
