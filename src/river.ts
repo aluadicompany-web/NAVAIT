@@ -2,6 +2,7 @@ import * as T from "three";
 import { state, type Krathong } from "./state";
 import { createKrathong, disposeModel, type Model } from "./render/krathong";
 import { Festival } from "./render/festival";
+import { NightSky } from "./render/night-sky";
 import { createWater } from "./render/water";
 import { designs } from "./catalog";
 import { CostumePool } from "./ceremony";
@@ -29,6 +30,7 @@ export class River {
   private costumes = new CostumePool();
   private water = createWater();
   private festival = new Festival();
+  private sky: NightSky;
   private media = matchMedia("(prefers-reduced-motion: reduce)");
   private effect: {
     group: T.Group;
@@ -59,18 +61,20 @@ export class River {
     this.renderer.setClearColor(0, 0);
     this.renderer.outputColorSpace = T.SRGBColorSpace;
     this.renderer.toneMapping = T.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.5;
+    this.renderer.toneMappingExposure = 1.05;
+    this.sky = new NightSky(host);
+    this.scene.add(this.sky.group);
     host.append(this.renderer.domElement);
     this.labels.className = "boat-labels";
     host.append(this.labels);
-    this.scene.fog = new T.FogExp2(0x12383c, 0.021);
+    this.scene.fog = new T.FogExp2(0x041425, 0.012);
     this.scene.add(this.water.mesh);
     this.scene.add(this.festival.group);
-    this.scene.add(new T.HemisphereLight(0xc4e9ff, 0x427858, 2.4));
-    const light = new T.DirectionalLight(0xffe0a4, 3.4);
+    this.scene.add(new T.HemisphereLight(0xaac8f0, 0x162321, 1.35));
+    const light = new T.DirectionalLight(0xc8ddff, 2.2);
     light.position.set(-3, 10, 5);
     this.scene.add(light);
-    const rim = new T.DirectionalLight(0x91c9e8, 2);
+    const rim = new T.DirectionalLight(0x7aa5dc, 1.1);
     rim.position.set(4, 4, -8);
     this.scene.add(rim);
     this.thumbnails = new T.Scene();
@@ -121,8 +125,10 @@ export class River {
     this.width = this.host.clientWidth;
     this.height = this.host.clientHeight;
     this.renderer.setSize(this.width, this.height);
-    this.water.material.uniforms.viewportHeight.value =
-      this.renderer.getDrawingBufferSize(new T.Vector2()).y;
+    const buffer = this.renderer.getDrawingBufferSize(new T.Vector2());
+    this.water.material.uniforms.viewportHeight.value = buffer.y;
+    this.water.material.uniforms.viewportWidth.value = buffer.x;
+    this.sky.resize(this.width, this.height, this.renderer.getPixelRatio());
     this.camera.aspect = this.width / this.height;
     this.camera.position.set(0, 15, 13);
     this.camera.lookAt(0, 0, 0);
@@ -354,6 +360,7 @@ export class River {
     if (!this.running || document.hidden || this.paused) return;
     if (!this.media.matches) this.time += delta;
     this.water.material.uniforms.time.value = this.time;
+    this.sky.update(this.time);
     const mobile = this.width < 760;
     this.actor?.update(
       actorDelta,
@@ -432,6 +439,8 @@ export class River {
     this.festival.update(this.time, this.camera, mobile);
     this.updateEffect();
     this.renderer.render(this.scene, this.camera);
+    this.host.dataset.drawCalls = String(this.renderer.info.render.calls);
+    this.host.dataset.triangles = String(this.renderer.info.render.triangles);
   };
   setPaused(paused: boolean) {
     this.paused = paused;
@@ -447,6 +456,7 @@ export class River {
     this.actor?.finish();
     this.actor = null;
     this.festival.dispose();
+    this.sky.dispose();
     this.renderer.setAnimationLoop(null);
     window.removeEventListener("resize", this.resize);
     this.media.removeEventListener("change", this.motionChange);
@@ -456,6 +466,7 @@ export class River {
     }
     this.water.mesh.geometry.dispose();
     this.water.material.dispose();
+    this.water.texture.dispose();
     this.renderer.dispose();
     this.host.replaceChildren();
   }

@@ -1,16 +1,18 @@
 import * as T from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { designs } from "../catalog";
-const sphere = new T.SphereGeometry(1, 10, 7);
-const cylinder = new T.CylinderGeometry(1, 1, 1, 24);
+import { craftMaterial, craftSurface } from "./craft-surfaces";
+const sphere = new T.SphereGeometry(1, 14, 10);
+const cylinder = new T.CylinderGeometry(1, 1, 1, 32);
 
 const petal = new T.BufferGeometry();
 const vertices: number[] = [],
-  indices: number[] = [];
-for (let row = 0; row <= 8; row++) {
-  const t = row / 8;
-  for (let col = 0; col <= 6; col++) {
-    const u = col / 3 - 1;
+  indices: number[] = [], uvs: number[] = [];
+for (let row = 0; row <= 12; row++) {
+  const t = row / 12;
+  for (let col = 0; col <= 8; col++) {
+    const u = col / 4 - 1;
+    uvs.push(col / 8, t);
     vertices.push(
       u * Math.sin(Math.PI * t) * 0.5,
       0.45 * t * t + 0.1 * (1 - u * u),
@@ -18,31 +20,24 @@ for (let row = 0; row <= 8; row++) {
     );
   }
 }
-for (let row = 0; row < 8; row++)
-  for (let col = 0; col < 6; col++) {
-    const i = row * 7 + col;
-    indices.push(i, i + 7, i + 1, i + 1, i + 7, i + 8);
+for (let row = 0; row < 12; row++)
+  for (let col = 0; col < 8; col++) {
+    const i = row * 9 + col;
+    indices.push(i, i + 9, i + 1, i + 1, i + 9, i + 10);
   }
 petal.setAttribute("position", new T.Float32BufferAttribute(vertices, 3));
+petal.setAttribute("uv", new T.Float32BufferAttribute(uvs, 2));
 petal.setIndex(indices);
 petal.computeVertexNormals();
 
-const cone = new T.ConeGeometry(1, 1, 10);
+const cone = new T.ConeGeometry(1, 1, 16);
 const materials = new Map<string, T.MeshStandardMaterial>();
-function material(color: number) {
-  const key = String(color);
-  if (!materials.has(key))
-    materials.set(
-      key,
-      new T.MeshStandardMaterial({
-        color,
-        roughness: 0.58,
-        metalness: 0.03,
-        side: T.DoubleSide,
-      }),
-    );
+function material(color: number, isPetal: boolean) {
+  const surface = craftSurface(color, isPetal), key = `${color}-${surface}`;
+  if (!materials.has(key)) materials.set(key, craftMaterial(color, surface));
   return materials.get(key)!;
 }
+const geometryCache = new Map<number, { group: T.Group; candleY: number; references: number }>();
 export type Model = { group: T.Group; flame: T.Mesh; glow: T.Sprite };
 const glowCanvas = document.createElement("canvas");
 glowCanvas.width = glowCanvas.height = 64;
@@ -70,6 +65,8 @@ const reflectionGeometry = new T.PlaneGeometry(2.8, 2.8);
 const flameMaterial = new T.MeshBasicMaterial({ color: 0xffdf88 });
 // Procedural Thai craft-inspired models: merged by material to limit draw calls.
 export function createKrathong(index: number): Model {
+  index = designs[index] ? index : 0;
+  if (geometryCache.has(index)) return instantiateModel(index);
   const design = designs[index] || designs[0],
     root = new T.Group(),
     raw = new T.Group();
@@ -86,7 +83,7 @@ export function createKrathong(index: number): Model {
     ry = 0,
     rz = 0,
   ) {
-    const m = new T.Mesh(geometry, material(color));
+    const m = new T.Mesh(geometry, material(color, geometry === petal));
     m.position.set(x, y, z);
     m.scale.set(sx, sy, sz);
     m.rotation.set(rx, ry, rz);
@@ -375,6 +372,14 @@ export function createKrathong(index: number): Model {
     if (merged) root.add(new T.Mesh(merged, mat));
     geometries.forEach((g) => g.dispose());
   }
+  geometryCache.set(index, { group: root, candleY, references: 0 });
+  return instantiateModel(index);
+}
+function instantiateModel(index: number): Model {
+  const cache = geometryCache.get(index)!;
+  cache.references++;
+  const root = cache.group.clone(), candleY = cache.candleY;
+  root.userData.geometryCacheKey = index;
   const flame = new T.Mesh(sphere, flameMaterial);
   flame.position.set(0, candleY + 0.36, 0);
   flame.scale.set(0.055, 0.14, 0.055);
@@ -390,12 +395,12 @@ export function createKrathong(index: number): Model {
   return { group: root, flame, glow };
 }
 export function disposeModel(model: Model) {
-  model.group.traverse((o) => {
-    if (
-      o instanceof T.Mesh &&
-      o.geometry !== sphere &&
-      o.geometry !== reflectionGeometry
-    )
-      o.geometry.dispose();
-  });
+  if (model.group.userData.disposed) return;
+  model.group.userData.disposed = true;
+  const key = model.group.userData.geometryCacheKey as number;
+  const cache = geometryCache.get(key);
+  if (cache && --cache.references === 0) {
+    cache.group.traverse(obj => { if (obj instanceof T.Mesh) obj.geometry.dispose(); });
+    geometryCache.delete(key);
+  }
 }

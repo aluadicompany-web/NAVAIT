@@ -32,9 +32,9 @@ export class CeremonyAvatar {
     mode: "ceremony" | "hall" = "ceremony",
   ) {
     this.side = side;
-    const sphere = new T.SphereGeometry(1, 10, 7),
-      capsule = new T.CapsuleGeometry(1, 1, 4, 8),
-      segment = new T.CylinderGeometry(1, 1, 1, 8);
+    const sphere = new T.SphereGeometry(1, 16, 12),
+      capsule = new T.CapsuleGeometry(1, 1, 6, 12),
+      segment = new T.CylinderGeometry(1, 1, 1, 12);
     [sphere, capsule, segment].forEach((g) => this.geometries.add(g));
     const material = (c: number) => {
       const m = new T.MeshStandardMaterial({
@@ -82,6 +82,12 @@ export class CeremonyAvatar {
       this.arms.push({ upper, lower, hand, side: s });
     }
     mesh(sphere, seam, this.torso, 0, 0.78, 0.207, 0.032, 0.032, 0.015);
+    // Cloth fastenings, collar and layered soles survive close ceremony views.
+    for (const y of [.73,.87,.99]) mesh(sphere, seam, this.torso, 0, y, .218, .012, .012, .009);
+    for (const leg of this.legs) {
+      mesh(sphere, trousers, leg, 0, -.39, .065, .119, .025, .174);
+      mesh(sphere, seam, leg, 0, -.32, .16, .052, .012, .015);
+    }
     this.held = mode === "ceremony" ? createKrathong(item.design ?? 0) : null;
     if (this.held) {
       this.group.add(this.held.group);

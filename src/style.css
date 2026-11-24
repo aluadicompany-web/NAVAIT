@@ -426,19 +426,6 @@ dialog p {
   background: radial-gradient(ellipse at 75% 3%, #284654 0%, #102c38 55%);
   overflow: hidden;
 }
-#river::before {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  top: 8%;
-  left: 72%;
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  background: #ffe6ac;
-  box-shadow: 0 0 45px #ffe6ac35;
-  pointer-events: none;
-}
 #river canvas {
   position: absolute;
   inset: 0;
@@ -672,15 +659,12 @@ footer {
   }
 }
 #river {
-  background-image:
-    radial-gradient(circle at 15% 7%, #e5d7a8 0 1px, transparent 1.5px),
-    radial-gradient(circle at 37% 16%, #d6e2d0 0 1px, transparent 1.5px),
-    radial-gradient(circle at 67% 4%, #e5d7a8 0 1px, transparent 1.5px),
-    radial-gradient(circle at 86% 19%, #e5d7a8 0 1px, transparent 1.5px),
-    radial-gradient(circle at 9% 23%, #d6e2d0 0 1px, transparent 1.5px),
-    radial-gradient(circle at 56% 22%, #d6e2d0 0 1px, transparent 1.5px),
-    radial-gradient(ellipse at 75% 3%, #284654 0%, #102c38 55%);
+  background-color: #031323;
+  background-size: cover;
+  background-position: 55% top;
+  background-repeat: no-repeat;
 }
+
 .after {
   padding: 15px 18px;
 }

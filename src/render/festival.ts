@@ -22,9 +22,9 @@ export class Festival {
     const raw = new T.Group(),
       originals = new Set<T.BufferGeometry>();
     const box = new T.BoxGeometry(),
-      cylinder = new T.CylinderGeometry(1, 1, 1, 12),
-      cone = new T.ConeGeometry(1, 1, 16),
-      sphere = new T.SphereGeometry(1, 6, 5);
+      cylinder = new T.CylinderGeometry(1, 1, 1, 24),
+      cone = new T.ConeGeometry(1, 1, 24),
+      sphere = new T.SphereGeometry(1, 12, 8);
     [box, cylinder, cone, sphere].forEach((g) => originals.add(g));
     const mat = (color: number, glow = false) => {
       const key = `${color}-${glow}`;
@@ -83,7 +83,7 @@ export class Festival {
         new T.CatmullRomCurve3(points),
         points.length > 12 ? 20 : 8,
         radius,
-        3,
+        6,
         false,
       );
       originals.add(geometry);
@@ -179,7 +179,7 @@ export class Festival {
           );
         }
       // Tile ribs follow the roof slope without a texture download.
-      const ribs = width < 1 ? 0 : width < 2.5 ? 4 : 7;
+      const ribs = width < 1 ? 0 : width < 2.5 ? 8 : 16;
       for (let i = 1; i < ribs; i++) {
         const zz = z - depth / 2 + (depth * i) / ribs;
         for (const side of [-1, 1])
@@ -195,13 +195,13 @@ export class Festival {
       }
     };
     // The bank rises only slightly above the water. The landing is lower still.
-    block(0x243d36, 0, -0.16, -5.3, 70, 0.42, 3.9);
-    block(0x51624a, 0, 0.065, -5.3, 70, 0.08, 3.8);
-    block(0x8b8161, 0, 0.12, -3.55, 50, 0.12, 0.5);
-    block(0x9a8c6b, 0, 0.12, -5.0, 10, 0.08, 2.3);
+    block(0x243d36, 0, -0.16, -3.95, 70, 0.42, 1.2);
+    block(0x263b37, 0, 0.065, -3.95, 70, 0.08, 1.1);
+    block(0x4c504a, 0, 0.12, -3.55, 50, 0.12, 0.5);
     for (let i = 0; i < 35; i++)
       block(i % 2 ? 0x706c53 : 0x7d755b, -17 + i, 0, -3.34, 0.94, 0.22, 0.14);
 
+    const architectureStart = raw.children.length;
     const hall = (x: number, z: number, size: number) => {
       block(0x8d6852, x, 0.23, z, 4.8 * size, 0.36 * size, 3.2 * size);
       block(0xc8b993, x, 0.45, z, 4.55 * size, 0.18 * size, 3.0 * size);
@@ -355,18 +355,26 @@ export class Festival {
         );
       part(cone, 0xf3d28b, x, 2.65, -5.6, 0.095, 0.85, 0.095, true);
     }
+    // Keep near-bank pavilions small and off the distant photographic landmark.
+    const architectureTransform = new T.Matrix4().makeScale(.42, .42, .42);
+    architectureTransform.premultiply(new T.Matrix4().makeTranslation(-10.5, 0, -2.4));
+    raw.children.slice(architectureStart).forEach(obj => obj.applyMatrix4(architectureTransform));
     // Wooden jetty: deck ~20 cm above the water, no high platform.
     block(0x4d3e2e, -0.8, 0.015, -1.67, 2.4, 0.16, 3.4);
-    for (let i = 0; i < 17; i++)
+    for (let i = 0; i < 34; i++)
       block(
         i % 2 ? 0x9c7950 : 0xa98657,
         -0.8,
         0.105,
-        -3.2 + i * 0.19,
+        -3.2 + i * 0.095,
         2.35,
         0.035,
-        0.17,
+        0.085,
       );
+    for (let i = 0; i < 34; i++) for (const x of [-1.79, .19])
+      part(cylinder, 0x625c4c, x, .128, -3.2 + i * .095, .012, .008, .012);
+    for (const z of [-2.9, -1.7, -.5])
+      block(0x544331, -.8, -.12, z, 2.55, .16, .14);
     for (const x of [-1.94, 0.34])
       for (const z of [-3.1, -1.7, -0.25]) {
         part(cylinder, 0x745739, x, 0.28, z, 0.055, 0.9, 0.055);
@@ -374,6 +382,8 @@ export class Festival {
           block(0x563e29, x, 0.81, z, 0.19, 0.24, 0.19);
           block(0xffd080, x, 0.82, z, 0.13, 0.16, 0.13, true);
           roof(x, z, 0.95, 0.36, 0.3, 0.13, 0x794532);
+          for (const dx of [-.065,.065]) for (const dz of [-.065,.065])
+            part(cylinder, 0x55412a, x+dx, .82, z+dz, .008, .19, .008);
         }
       }
     for (const x of [-1.94, 0.34])
@@ -400,7 +410,7 @@ export class Festival {
         for (const dx of [-0.7, 0.7])
           part(cylinder, 0x8b704f, x + dx, 0.8, z + 0.5, 0.035, 1.3, 0.035);
       }
-    for (const x of [-16, -11, 11, 16]) {
+    for (const x of [-24, -18, 18, 24]) {
       part(cylinder, 0x374439, x, 0.85, -7, 0.15, 1.6, 0.15);
       for (let i = 0; i < 4; i++)
         part(
@@ -536,6 +546,19 @@ export class Festival {
         };
         material.customProgramCacheKey = () => "festival-warm-light-v1";
       }
+      if (!glowing) {
+        material.onBeforeCompile = shader => {
+          shader.vertexShader = "varying vec3 vSceneryPosition;\n" + shader.vertexShader;
+          shader.vertexShader = shader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvSceneryPosition=position;");
+          shader.fragmentShader = "varying vec3 vSceneryPosition;\n" + shader.fragmentShader;
+          shader.fragmentShader = shader.fragmentShader.replace("#include <color_fragment>",`#include <color_fragment>
+            float pier=step(-2.05,vSceneryPosition.x)*step(vSceneryPosition.x,.45)*step(-3.4,vSceneryPosition.z);
+            float grain=sin(vSceneryPosition.x*145.+sin(vSceneryPosition.z*13.)*3.);
+            diffuseColor.rgb*=1.-pier*.075*(.5+.5*grain);
+          `);
+        };
+        material.customProgramCacheKey = () => "detailed-riverside-surfaces-v1";
+      }
       const mesh = new T.Mesh(merged, material);
       mesh.name = glowing ? "Festival lights" : "Temple and low landing";
       this.group.add(mesh);
@@ -570,7 +593,7 @@ export class Festival {
     this.shoreGlows.frustumCulled = false;
     this.group.add(this.shoreGlows);
     this.lanterns = new T.InstancedMesh(
-      new T.CylinderGeometry(0.16, 0.14, 0.32, 8, 1, true),
+      new T.CylinderGeometry(0.16, 0.14, 0.32, 24, 4, true),
       new T.MeshBasicMaterial({
         color: 0xffba6c,
         side: T.DoubleSide,
@@ -579,13 +602,25 @@ export class Festival {
       }),
       18,
     );
+    const lanternPaper = this.lanterns.material as T.MeshBasicMaterial;
+    lanternPaper.onBeforeCompile = shader => {
+      shader.vertexShader = "varying vec2 vPaperUv;\n" + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvPaperUv=uv;");
+      shader.fragmentShader = "varying vec2 vPaperUv;\n" + shader.fragmentShader;
+      shader.fragmentShader = shader.fragmentShader.replace("#include <color_fragment>",`#include <color_fragment>
+        float seam=pow(.5+.5*cos(vPaperUv.x*75.398),18.);
+        float fibre=sin(vPaperUv.x*511.+sin(vPaperUv.y*231.)*3.)*.025;
+        diffuseColor.rgb*=.84+.16*sin(vPaperUv.y*3.14159)-seam*.09+fibre;
+      `);
+    };
+    lanternPaper.customProgramCacheKey = () => "fine-lantern-paper-v1";
     this.flames = new T.InstancedMesh(
-      new T.ConeGeometry(0.035, 0.09, 5),
+      new T.ConeGeometry(0.035, 0.09, 12),
       new T.MeshBasicMaterial({ color: 0xffb24e }),
       18,
     );
     this.rims = new T.InstancedMesh(
-      new T.TorusGeometry(0.14, 0.009, 3, 8),
+      new T.TorusGeometry(0.14, 0.009, 5, 24),
       new T.MeshBasicMaterial({ color: 0xeeaa5c }),
       18,
     );
